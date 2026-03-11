@@ -143,10 +143,10 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KPICard icon={Wallet} label="Totaal banksaldo" value={fmt(kpi.totaalSaldo)} color="kpi-blue" />
-        <KPICard icon={ArrowUpRight} label="Openstaande debiteuren" value={fmt(kpi.debiteuren)} color="kpi-green" />
-        <KPICard icon={ArrowDownRight} label="Openstaande crediteuren" value={fmt(kpi.crediteuren)} color="kpi-orange" />
-        <KPICard icon={TrendingDown} label="Vrije liquiditeit" value={fmt(kpi.vrijeLiquiditeit)} color="kpi-blue" />
+        <KPICard icon={Wallet} label="Totaal banksaldo" value={fmt(kpi.totaalSaldo)} iconColor="#3b82f6" bgColor="#3b82f620" />
+        <KPICard icon={ArrowUpRight} label="Openstaande debiteuren" value={fmt(kpi.debiteuren)} iconColor="#059669" bgColor="#05966920" />
+        <KPICard icon={ArrowDownRight} label="Openstaande crediteuren" value={fmt(kpi.crediteuren)} iconColor="#d97706" bgColor="#d9770620" />
+        <KPICard icon={TrendingDown} label="Vrije liquiditeit" value={fmt(kpi.vrijeLiquiditeit)} iconColor="#3b82f6" bgColor="#3b82f620" />
       </div>
 
       {/* Charts + Table */}
