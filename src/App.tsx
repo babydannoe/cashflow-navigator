@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { BVProvider } from "@/contexts/BVContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import ForecastExplorer from "./pages/ForecastExplorer";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
@@ -21,7 +22,7 @@ const App = () => (
           <AppLayout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
-              <Route path="/forecast" element={<PlaceholderPage title="Forecast Explorer" />} />
+              <Route path="/forecast" element={<ForecastExplorer />} />
               <Route path="/bv-overzicht" element={<PlaceholderPage title="BV Overzicht" />} />
               <Route path="/mt-pipeline" element={<PlaceholderPage title="MT Pipeline" />} />
               <Route path="/facturen" element={<PlaceholderPage title="Facturen & Goedkeuringen" />} />
