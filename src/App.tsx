@@ -7,6 +7,10 @@ import { BVProvider } from "@/contexts/BVContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ForecastExplorer from "./pages/ForecastExplorer";
+import BVOverzicht from "./pages/BVOverzicht";
+import MTPipeline from "./pages/MTPipeline";
+import BuffersLiquiditeit from "./pages/BuffersLiquiditeit";
+import RecurringKosten from "./pages/RecurringKosten";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
