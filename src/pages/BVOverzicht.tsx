@@ -87,10 +87,10 @@ export default function BVOverzicht() {
               <CardTitle className="text-lg" style={{ color: card.kleur }}>{card.naam}</CardTitle>
               <div className="flex gap-1">
                 {card.hasNegativeClosing && (
-                  <AlertTriangle className="h-5 w-5 text-destructive" title="Negatief eindsaldo in forecast" />
+                  <span title="Negatief eindsaldo in forecast"><AlertTriangle className="h-5 w-5 text-destructive" /></span>
                 )}
                 {card.hasNegativeLiquidity && (
-                  <AlertCircle className="h-5 w-5 text-orange-500" title="Negatieve vrije liquiditeit" />
+                  <span title="Negatieve vrije liquiditeit"><AlertCircle className="h-5 w-5 text-orange-500" /></span>
                 )}
               </div>
             </CardHeader>

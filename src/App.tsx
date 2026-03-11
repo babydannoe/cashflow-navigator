@@ -27,12 +27,12 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/forecast" element={<ForecastExplorer />} />
-              <Route path="/bv-overzicht" element={<PlaceholderPage title="BV Overzicht" />} />
-              <Route path="/mt-pipeline" element={<PlaceholderPage title="MT Pipeline" />} />
+              <Route path="/bv-overzicht" element={<BVOverzicht />} />
+              <Route path="/mt-pipeline" element={<MTPipeline />} />
               <Route path="/facturen" element={<PlaceholderPage title="Facturen & Goedkeuringen" />} />
               <Route path="/betalingsronden" element={<PlaceholderPage title="Betalingsronden" />} />
-              <Route path="/recurring" element={<PlaceholderPage title="Recurring Kosten" />} />
-              <Route path="/buffers" element={<PlaceholderPage title="Buffers & Liquiditeit" />} />
+              <Route path="/recurring" element={<RecurringKosten />} />
+              <Route path="/buffers" element={<BuffersLiquiditeit />} />
               <Route path="/btw" element={<PlaceholderPage title="BTW & Belasting" />} />
               <Route path="/leningen" element={<PlaceholderPage title="Leningen & Dividend" />} />
               <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
