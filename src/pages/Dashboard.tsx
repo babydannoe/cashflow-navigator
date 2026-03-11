@@ -25,11 +25,10 @@ interface UpcomingPayment {
   bv_naam: string;
 }
 
-interface AlertBV {
-  naam: string;
-  saldo: number;
-  drempel: number;
-  kleur: string;
+interface ForecastAlert {
+  bvNaam: string;
+  week: string;
+  closingBalance: number;
 }
 
 export default function Dashboard() {
@@ -37,7 +36,7 @@ export default function Dashboard() {
   const [kpi, setKpi] = useState<KPIData>({ totaalSaldo: 0, debiteuren: 0, crediteuren: 0, vrijeLiquiditeit: 0 });
   const [barData, setBarData] = useState<BarData[]>([]);
   const [upcoming, setUpcoming] = useState<UpcomingPayment[]>([]);
-  const [alerts, setAlerts] = useState<AlertBV[]>([]);
+  const [forecastAlerts, setForecastAlerts] = useState<ForecastAlert[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -50,23 +49,20 @@ export default function Dashboard() {
 
     const bvFilter = selectedBVId ? [selectedBVId] : bvs.map(b => b.id);
 
-    // Fetch bank accounts
-    const { data: accounts } = await supabase
-      .from('bank_accounts')
-      .select('bv_id, huidig_saldo')
-      .in('bv_id', bvFilter);
+    // Fetch bank accounts, invoices, forecasts in parallel
+    const [accountsRes, invoicesRes, forecastsRes] = await Promise.all([
+      supabase.from('bank_accounts').select('bv_id, huidig_saldo').in('bv_id', bvFilter),
+      supabase.from('invoices').select('bv_id, type, bedrag, vervaldatum, factuurnummer, status').in('bv_id', bvFilter).eq('status', 'open').order('vervaldatum', { ascending: true }),
+      supabase.from('forecasts').select('bv_id, week, closing_balance').in('bv_id', bvFilter).order('week', { ascending: true }),
+    ]);
 
-    // Fetch open invoices
-    const { data: invoices } = await supabase
-      .from('invoices')
-      .select('bv_id, type, bedrag, vervaldatum, factuurnummer, status')
-      .in('bv_id', bvFilter)
-      .eq('status', 'open')
-      .order('vervaldatum', { ascending: true });
+    const accounts = accountsRes.data ?? [];
+    const invoices = invoicesRes.data ?? [];
+    const forecasts = forecastsRes.data ?? [];
 
-    const totaalSaldo = accounts?.reduce((sum, a) => sum + Number(a.huidig_saldo ?? 0), 0) ?? 0;
-    const debiteuren = invoices?.filter(i => i.type === 'AR').reduce((sum, i) => sum + Number(i.bedrag), 0) ?? 0;
-    const crediteuren = invoices?.filter(i => i.type === 'AP').reduce((sum, i) => sum + Number(i.bedrag), 0) ?? 0;
+    const totaalSaldo = accounts.reduce((sum, a) => sum + Number(a.huidig_saldo ?? 0), 0);
+    const debiteuren = invoices.filter(i => i.type === 'AR').reduce((sum, i) => sum + Number(i.bedrag), 0);
+    const crediteuren = invoices.filter(i => i.type === 'AP').reduce((sum, i) => sum + Number(i.bedrag), 0);
 
     setKpi({
       totaalSaldo,
@@ -78,34 +74,47 @@ export default function Dashboard() {
     // Bar chart data
     const chartData = bvs.map(bv => ({
       naam: bv.naam.replace(' BV', '').replace(' B.V.', ''),
-      saldo: accounts?.filter(a => a.bv_id === bv.id).reduce((s, a) => s + Number(a.huidig_saldo ?? 0), 0) ?? 0,
+      saldo: accounts.filter(a => a.bv_id === bv.id).reduce((s, a) => s + Number(a.huidig_saldo ?? 0), 0),
       kleur: bv.kleur ?? '#888',
     }));
     setBarData(selectedBVId ? chartData.filter(d => d.kleur === bvs.find(b => b.id === selectedBVId)?.kleur) : chartData);
 
     // Upcoming payments (top 10)
-    const top10 = (invoices ?? []).slice(0, 10).map(inv => ({
+    setUpcoming(invoices.slice(0, 10).map(inv => ({
       factuurnummer: inv.factuurnummer,
       bedrag: Number(inv.bedrag),
       vervaldatum: inv.vervaldatum,
       type: inv.type,
       bv_naam: bvs.find(b => b.id === inv.bv_id)?.naam ?? '',
-    }));
-    setUpcoming(top10);
+    })));
 
-    // Alerts: BVs under threshold
-    const alertList: AlertBV[] = [];
+    // Forecast alerts: find first week where closing_balance goes negative per BV
+    const alerts: ForecastAlert[] = [];
     for (const bv of bvs) {
-      const bvSaldo = accounts?.filter(a => a.bv_id === bv.id).reduce((s, a) => s + Number(a.huidig_saldo ?? 0), 0) ?? 0;
-      if (bvSaldo < Number(bv.drempel_bedrag ?? 0)) {
-        alertList.push({ naam: bv.naam, saldo: bvSaldo, drempel: Number(bv.drempel_bedrag ?? 0), kleur: bv.kleur ?? '#888' });
+      if (selectedBVId && bv.id !== selectedBVId) continue;
+      const bvForecasts = forecasts.filter(f => f.bv_id === bv.id);
+      const firstNegative = bvForecasts.find(f => Number(f.closing_balance ?? 0) < 0);
+      if (firstNegative) {
+        alerts.push({
+          bvNaam: bv.naam,
+          week: firstNegative.week ?? '',
+          closingBalance: Number(firstNegative.closing_balance ?? 0),
+        });
       }
     }
-    setAlerts(alertList);
+    setForecastAlerts(alerts);
     setLoading(false);
   }
 
   const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+
+  const formatWeekLabel = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const oneJan = new Date(d.getFullYear(), 0, 1);
+    const weekNum = Math.ceil(((d.getTime() - oneJan.getTime()) / 86400000 + oneJan.getDay() + 1) / 7);
+    return `week ${weekNum} (${d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long' })})`;
+  };
 
   if (loading) {
     return (
@@ -124,16 +133,16 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Alert Banner */}
-      {alerts.length > 0 && (
+      {/* Forecast Alert Banner */}
+      {forecastAlerts.length > 0 && (
         <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-4">
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="font-semibold text-destructive text-sm">Liquiditeitsalert</p>
-              {alerts.map(a => (
-                <p key={a.naam} className="text-sm text-destructive/80">
-                  <span className="font-medium">{a.naam}</span>: saldo {fmt(a.saldo)} is onder drempel {fmt(a.drempel)}
+              <p className="font-semibold text-destructive text-sm">⚠ Liquiditeitsalert — Forecast</p>
+              {forecastAlerts.map(a => (
+                <p key={a.bvNaam} className="text-sm text-destructive/80">
+                  <span className="font-medium">{a.bvNaam}</span> dreigt negatief te gaan vanaf {formatWeekLabel(a.week)} (eindsaldo: {fmt(a.closingBalance)})
                 </p>
               ))}
             </div>
