@@ -216,13 +216,13 @@ export default function Dashboard() {
   );
 }
 
-function KPICard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string; color: string }) {
+function KPICard({ icon: Icon, label, value, iconColor, bgColor }: { icon: any; label: string; value: string; iconColor: string; bgColor: string }) {
   return (
     <div className="kpi-card">
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm text-muted-foreground">{label}</span>
-        <div className={`h-9 w-9 rounded-lg bg-[hsl(var(--${color}))] bg-opacity-10 flex items-center justify-center`}>
-          <Icon className={`h-4 w-4 text-[hsl(var(--${color}))]`} />
+        <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: bgColor }}>
+          <Icon className="h-4 w-4" style={{ color: iconColor }} />
         </div>
       </div>
       <div className="kpi-value">{value}</div>
