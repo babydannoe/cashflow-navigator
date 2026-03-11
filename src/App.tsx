@@ -7,6 +7,10 @@ import { BVProvider } from "@/contexts/BVContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ForecastExplorer from "./pages/ForecastExplorer";
+import BVOverzicht from "./pages/BVOverzicht";
+import MTPipeline from "./pages/MTPipeline";
+import BuffersLiquiditeit from "./pages/BuffersLiquiditeit";
+import RecurringKosten from "./pages/RecurringKosten";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
@@ -23,12 +27,12 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/forecast" element={<ForecastExplorer />} />
-              <Route path="/bv-overzicht" element={<PlaceholderPage title="BV Overzicht" />} />
-              <Route path="/mt-pipeline" element={<PlaceholderPage title="MT Pipeline" />} />
+              <Route path="/bv-overzicht" element={<BVOverzicht />} />
+              <Route path="/mt-pipeline" element={<MTPipeline />} />
               <Route path="/facturen" element={<PlaceholderPage title="Facturen & Goedkeuringen" />} />
               <Route path="/betalingsronden" element={<PlaceholderPage title="Betalingsronden" />} />
-              <Route path="/recurring" element={<PlaceholderPage title="Recurring Kosten" />} />
-              <Route path="/buffers" element={<PlaceholderPage title="Buffers & Liquiditeit" />} />
+              <Route path="/recurring" element={<RecurringKosten />} />
+              <Route path="/buffers" element={<BuffersLiquiditeit />} />
               <Route path="/btw" element={<PlaceholderPage title="BTW & Belasting" />} />
               <Route path="/leningen" element={<PlaceholderPage title="Leningen & Dividend" />} />
               <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
