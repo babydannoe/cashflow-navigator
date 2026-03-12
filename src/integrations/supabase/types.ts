@@ -253,16 +253,19 @@ export type Database = {
       }
       counterparties: {
         Row: {
+          iban: string | null
           id: string
           naam: string
           type: string | null
         }
         Insert: {
+          iban?: string | null
           id?: string
           naam: string
           type?: string | null
         }
         Update: {
+          iban?: string | null
           id?: string
           naam?: string
           type?: string | null
@@ -518,6 +521,89 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "mt_pipeline_items_bv_id_fkey"
+            columns: ["bv_id"]
+            isOneToOne: false
+            referencedRelation: "bv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_run_items: {
+        Row: {
+          bedrag: number
+          iban_begunstigde: string | null
+          id: string
+          invoice_id: string
+          naam_begunstigde: string | null
+          payment_run_id: string
+        }
+        Insert: {
+          bedrag: number
+          iban_begunstigde?: string | null
+          id?: string
+          invoice_id: string
+          naam_begunstigde?: string | null
+          payment_run_id: string
+        }
+        Update: {
+          bedrag?: number
+          iban_begunstigde?: string | null
+          id?: string
+          invoice_id?: string
+          naam_begunstigde?: string | null
+          payment_run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_run_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_run_items_payment_run_id_fkey"
+            columns: ["payment_run_id"]
+            isOneToOne: false
+            referencedRelation: "payment_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_runs: {
+        Row: {
+          aangemaakt_op: string | null
+          aantal_facturen: number | null
+          bv_id: string | null
+          id: string
+          naam: string | null
+          status: string
+          totaal_bedrag: number | null
+          uitgevoerd_op: string | null
+        }
+        Insert: {
+          aangemaakt_op?: string | null
+          aantal_facturen?: number | null
+          bv_id?: string | null
+          id?: string
+          naam?: string | null
+          status?: string
+          totaal_bedrag?: number | null
+          uitgevoerd_op?: string | null
+        }
+        Update: {
+          aangemaakt_op?: string | null
+          aantal_facturen?: number | null
+          bv_id?: string | null
+          id?: string
+          naam?: string | null
+          status?: string
+          totaal_bedrag?: number | null
+          uitgevoerd_op?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_runs_bv_id_fkey"
             columns: ["bv_id"]
             isOneToOne: false
             referencedRelation: "bv"
