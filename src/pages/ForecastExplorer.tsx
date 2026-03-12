@@ -379,13 +379,13 @@ export default function ForecastExplorer() {
                     <div
                       className={cn(
                         'w-[280px] min-w-[280px] sticky left-0 z-10 flex items-center gap-1 px-4 border-r border-border text-sm truncate',
-                        isOpening && 'bg-[hsl(47_91%_53%/0.04)] font-semibold text-foreground',
+                        isOpening && 'matrix-opening-bg font-semibold text-foreground',
                         row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
-                        isClosing && 'bg-[hsl(47_91%_53%/0.04)] font-bold text-foreground',
-                        row.type === 'category' && 'bg-card font-semibold text-foreground',
-                        row.type === 'subcategory' && 'bg-[hsl(0_0%_6%)] font-medium text-muted-foreground',
-                        row.type === 'detail' && 'bg-background text-muted-foreground cursor-pointer',
+                        isClosing && 'bg-card font-bold text-foreground',
+                        row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground',
+                        row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground',
+                        row.type === 'detail' && 'matrix-detail-bg text-muted-foreground cursor-pointer',
                       )}
                       style={{ paddingLeft: 16 + row.indent * 20 }}
                       onClick={() => {
