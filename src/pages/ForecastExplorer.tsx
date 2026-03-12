@@ -281,7 +281,7 @@ export default function ForecastExplorer() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-xl bg-card border">
+      <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-xl bg-card border border-border">
         <Select value={localBVId || 'all'} onValueChange={(v) => setLocalBVId(v === 'all' ? null : v)}>
           <SelectTrigger className="w-[200px] h-9 text-sm">
             <SelectValue placeholder="Geconsolideerd" />
@@ -299,11 +299,11 @@ export default function ForecastExplorer() {
           </SelectContent>
         </Select>
 
-        <div className="flex rounded-lg border overflow-hidden">
+        <div className="flex rounded-lg border border-border overflow-hidden">
           {PERIODS.map(p => (
             <button key={p.value} onClick={() => setPeriod(p.value)}
               className={cn('px-3 py-1.5 text-xs font-medium transition-colors',
-                period === p.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
+                period === p.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-surface-raised'
               )}>
               {p.label}
             </button>
@@ -320,11 +320,11 @@ export default function ForecastExplorer() {
           ))}
         </div>
 
-        <div className="flex rounded-lg border overflow-hidden">
+        <div className="flex rounded-lg border border-border overflow-hidden">
           {TYPE_FILTERS.map(t => (
             <button key={t.value} onClick={() => setTypeFilter(t.value)}
               className={cn('px-3 py-1.5 text-xs font-medium transition-colors',
-                typeFilter === t.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
+                typeFilter === t.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-surface-raised'
               )}>
               {t.label}
             </button>
@@ -339,7 +339,7 @@ export default function ForecastExplorer() {
 
       {!loaded ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
+          <div className="text-center border border-dashed border-border rounded-xl p-12">
             <p className="text-muted-foreground mb-3">Klik "Sync data" om de forecast te berekenen</p>
             <Button onClick={syncData} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
@@ -348,15 +348,15 @@ export default function ForecastExplorer() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-hidden rounded-xl border bg-card" ref={parentRef} style={{ overflow: 'auto' }}>
+        <div className="flex-1 overflow-hidden rounded-xl border border-border bg-card" ref={parentRef} style={{ overflow: 'auto' }}>
           <div style={{ minWidth: 280 + weekBuckets.length * COL_WIDTH }}>
             {/* Header */}
-            <div className="flex sticky top-0 z-20 bg-card border-b">
-              <div className="w-[280px] min-w-[280px] sticky left-0 z-30 bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground border-r">
+            <div className="flex sticky top-0 z-20 bg-background border-b border-border">
+              <div className="w-[280px] min-w-[280px] sticky left-0 z-30 bg-background px-4 py-2.5 text-xs font-semibold text-muted-foreground border-r border-border">
                 Omschrijving
               </div>
               {weekBuckets.map(w => (
-                <div key={w.weekDate} className="text-center py-2.5 text-xs font-semibold text-muted-foreground border-r last:border-r-0" style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}>
+                <div key={w.weekDate} className="text-center py-2.5 text-xs font-semibold text-muted-foreground border-r border-border last:border-r-0" style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}>
                   {w.label}
                 </div>
               ))}
@@ -366,20 +366,26 @@ export default function ForecastExplorer() {
             <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
                 const row = visibleRows[virtualRow.index];
+                const isOpening = row.type === 'summary' && row.summaryKind === 'opening';
+                const isClosing = row.type === 'summary' && row.summaryKind === 'closing';
+
                 return (
-                  <div key={row.id} className="flex absolute w-full"
+                  <div key={row.id} className={cn(
+                    'flex absolute w-full hover:bg-surface-raised transition-colors',
+                    isClosing && 'border-l-[3px] border-l-primary',
+                  )}
                     style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}>
                     {/* Label cell */}
                     <div
                       className={cn(
-                        'w-[280px] min-w-[280px] sticky left-0 z-10 flex items-center gap-1 px-4 border-r text-sm truncate',
-                        row.type === 'summary' && row.summaryKind === 'opening' && 'bg-primary/5 font-semibold text-primary',
-                        row.type === 'summary' && row.summaryKind === 'inflow' && 'bg-[#059669]/5 font-semibold text-[#059669]',
-                        row.type === 'summary' && row.summaryKind === 'outflow' && 'bg-destructive/5 font-semibold text-destructive',
-                        row.type === 'summary' && row.summaryKind === 'closing' && 'bg-primary/10 font-bold text-primary',
-                        row.type === 'category' && 'bg-muted/50 font-semibold',
-                        row.type === 'subcategory' && 'bg-card font-medium',
-                        row.type === 'detail' && 'bg-card text-muted-foreground cursor-pointer hover:bg-muted/30',
+                        'w-[280px] min-w-[280px] sticky left-0 z-10 flex items-center gap-1 px-4 border-r border-border text-sm truncate',
+                        isOpening && 'bg-[hsl(47_91%_53%/0.04)] font-semibold text-foreground',
+                        row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
+                        row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
+                        isClosing && 'bg-[hsl(47_91%_53%/0.04)] font-bold text-foreground',
+                        row.type === 'category' && 'bg-card font-semibold text-foreground',
+                        row.type === 'subcategory' && 'bg-[hsl(0_0%_6%)] font-medium text-muted-foreground',
+                        row.type === 'detail' && 'bg-background text-muted-foreground cursor-pointer',
                       )}
                       style={{ paddingLeft: 16 + row.indent * 20 }}
                       onClick={() => {
@@ -387,7 +393,7 @@ export default function ForecastExplorer() {
                       }}
                     >
                       {row.expandable && (
-                        <button onClick={(e) => { e.stopPropagation(); toggleExpand(row.id); }} className="p-0.5 rounded hover:bg-muted shrink-0">
+                        <button onClick={(e) => { e.stopPropagation(); toggleExpand(row.id); }} className="p-0.5 rounded hover:bg-surface-raised shrink-0">
                           {expanded.has(row.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                         </button>
                       )}
@@ -397,22 +403,22 @@ export default function ForecastExplorer() {
                     {/* Week cells */}
                     {weekBuckets.map(w => {
                       const val = row.weekValues[w.weekDate] || 0;
-                      const isClosing = row.summaryKind === 'closing';
-                      const isNegative = val < 0;
+                      const isNeg = val < 0;
                       const underDrempel = isClosing && val < drempel && drempel > 0;
 
                       return (
                         <div key={w.weekDate}
                           className={cn(
-                            'flex items-center justify-end px-2 border-r last:border-r-0 font-mono text-xs',
-                            row.type === 'summary' && row.summaryKind === 'opening' && 'bg-primary/5',
-                            row.type === 'summary' && row.summaryKind === 'inflow' && 'bg-[#059669]/5',
-                            row.type === 'summary' && row.summaryKind === 'outflow' && 'bg-destructive/5',
-                            row.type === 'summary' && row.summaryKind === 'closing' && 'bg-primary/10 font-bold',
-                            row.type === 'category' && 'bg-muted/50 font-semibold',
-                            row.type === 'detail' && 'cursor-pointer hover:bg-muted/30',
-                            isNegative && 'text-destructive',
-                            underDrempel && 'bg-destructive/20 text-destructive font-bold',
+                            'flex items-center justify-end px-2 border-r border-border last:border-r-0 font-mono text-xs tabular-nums',
+                            isOpening && 'bg-[hsl(47_91%_53%/0.04)]',
+                            row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
+                            row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
+                            isClosing && 'bg-[hsl(47_91%_53%/0.04)] font-bold',
+                            row.type === 'category' && 'bg-card font-semibold',
+                            row.type === 'subcategory' && 'bg-[hsl(0_0%_6%)]',
+                            row.type === 'detail' && 'bg-background cursor-pointer',
+                            isNeg && 'text-destructive',
+                            underDrempel && 'bg-[hsl(0_84%_60%/0.06)] text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           onClick={() => {
@@ -430,15 +436,6 @@ export default function ForecastExplorer() {
           </div>
         </div>
       )}
-
-      <ForecastDrilldownDrawer
-        item={drilldownItem}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        onRefresh={syncData}
-        bvs={bvs}
-        isNew={isNewPost}
-      />
     </div>
   );
 }

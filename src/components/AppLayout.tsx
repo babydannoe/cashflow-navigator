@@ -7,10 +7,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center gap-4 border-b px-4 bg-card">
+          <header className="h-14 flex items-center gap-4 border-b border-border px-4 bg-card">
             <SidebarTrigger />
             {selectedBV && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
