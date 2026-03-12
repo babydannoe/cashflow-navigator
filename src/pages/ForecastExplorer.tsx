@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useBV } from '@/contexts/BVContext';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, ChevronRight, ChevronDown, Loader2 } from 'lucide-react';
+import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,9 +44,9 @@ interface CashflowItem {
   verwachte_week?: string;
   kans_percentage?: number;
   frequentie?: string;
+  cashflow_item_id?: string;
 }
 
-// Row types for the matrix
 type RowType = 'summary' | 'category' | 'subcategory' | 'detail';
 
 interface MatrixRow {
@@ -58,8 +58,7 @@ interface MatrixRow {
   indent: number;
   expandable: boolean;
   parentId?: string;
-  items?: CashflowItem[]; // only for detail rows
-  detailItem?: CashflowItem; // the specific item for drilldown
+  detailItem?: CashflowItem;
 }
 
 const SOURCES = [
@@ -91,18 +90,16 @@ export default function ForecastExplorer() {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  // Filters
   const [period, setPeriod] = useState('12');
   const [selectedSources, setSelectedSources] = useState<string[]>(SOURCES.map(s => s.id));
   const [typeFilter, setTypeFilter] = useState('all');
   const [localBVId, setLocalBVId] = useState<string | null>(selectedBVId);
 
-  // Expand state
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Drilldown
   const [drilldownItem, setDrilldownItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isNewPost, setIsNewPost] = useState(false);
 
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -125,7 +122,6 @@ export default function ForecastExplorer() {
     }
   }, [localBVId, period]);
 
-  // Filter items
   const filteredItems = useMemo(() => {
     return cashflowItems.filter(item => {
       if (!selectedSources.includes(item.bron)) return false;
@@ -135,70 +131,44 @@ export default function ForecastExplorer() {
     });
   }, [cashflowItems, selectedSources, typeFilter]);
 
-  // Build hierarchical rows
+  // Build hierarchical rows: Category → Subcategory (counterparty) → Individual post
   const allRows = useMemo(() => {
     const rows: MatrixRow[] = [];
     const weeks = weekBuckets.map(w => w.weekDate);
 
-    // Summary: Opening balance
+    // Opening balance
     const openingRow: MatrixRow = {
-      id: 'summary-opening',
-      type: 'summary',
-      label: 'Beginsaldo',
-      summaryKind: 'opening',
-      weekValues: {},
-      indent: 0,
-      expandable: false,
+      id: 'summary-opening', type: 'summary', label: 'Beginsaldo', summaryKind: 'opening',
+      weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { openingRow.weekValues[f.week] = f.opening_balance; });
     rows.push(openingRow);
 
-    // Group items by category > subcategory
     const inflowItems = filteredItems.filter(i => i.type === 'in');
     const outflowItems = filteredItems.filter(i => i.type === 'out');
 
     // Inflow summary
     const inflowSummary: MatrixRow = {
-      id: 'summary-inflow',
-      type: 'summary',
-      label: 'Totaal Cash In',
-      summaryKind: 'inflow',
-      weekValues: {},
-      indent: 0,
-      expandable: false,
+      id: 'summary-inflow', type: 'summary', label: 'Totaal Cash In', summaryKind: 'inflow',
+      weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { inflowSummary.weekValues[f.week] = f.inflow; });
-
-    // Build inflow categories
-    const inflowCatRows = buildCategoryRows(inflowItems, weeks, 'in');
     rows.push(inflowSummary);
-    rows.push(...inflowCatRows);
+    rows.push(...buildCategoryRows(inflowItems, weeks, 'in'));
 
     // Outflow summary
     const outflowSummary: MatrixRow = {
-      id: 'summary-outflow',
-      type: 'summary',
-      label: 'Totaal Cash Uit',
-      summaryKind: 'outflow',
-      weekValues: {},
-      indent: 0,
-      expandable: false,
+      id: 'summary-outflow', type: 'summary', label: 'Totaal Cash Uit', summaryKind: 'outflow',
+      weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { outflowSummary.weekValues[f.week] = f.outflow; });
-
-    const outflowCatRows = buildCategoryRows(outflowItems, weeks, 'out');
     rows.push(outflowSummary);
-    rows.push(...outflowCatRows);
+    rows.push(...buildCategoryRows(outflowItems, weeks, 'out'));
 
     // Closing balance
     const closingRow: MatrixRow = {
-      id: 'summary-closing',
-      type: 'summary',
-      label: 'Eindsaldo',
-      summaryKind: 'closing',
-      weekValues: {},
-      indent: 0,
-      expandable: false,
+      id: 'summary-closing', type: 'summary', label: 'Eindsaldo', summaryKind: 'closing',
+      weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { closingRow.weekValues[f.week] = f.closing_balance; });
     rows.push(closingRow);
@@ -206,22 +176,19 @@ export default function ForecastExplorer() {
     return rows;
   }, [filteredItems, weekBuckets, forecasts]);
 
-  // Visible rows (respecting expand state)
   const visibleRows = useMemo(() => {
     const result: MatrixRow[] = [];
     for (const row of allRows) {
-      if (row.type === 'summary') {
-        result.push(row);
-      } else if (row.type === 'category') {
+      if (row.type === 'summary' || row.type === 'category') {
         result.push(row);
       } else if (row.type === 'subcategory') {
         if (row.parentId && expanded.has(row.parentId)) {
           result.push(row);
         }
       } else if (row.type === 'detail') {
-        // Show if both category and subcategory are expanded
+        // parentId = "in::Diensten::Jongens van Boven", need catId = "in::Diensten"
         const parts = row.parentId?.split('::') || [];
-        const catId = parts[0];
+        const catId = parts.slice(0, 2).join('::');
         const subId = row.parentId;
         if (catId && subId && expanded.has(catId) && expanded.has(subId)) {
           result.push(row);
@@ -249,6 +216,13 @@ export default function ForecastExplorer() {
 
   const handleDetailClick = (item: CashflowItem) => {
     setDrilldownItem(item as DrilldownItem);
+    setIsNewPost(false);
+    setDrawerOpen(true);
+  };
+
+  const handleNewPost = () => {
+    setDrilldownItem(null);
+    setIsNewPost(true);
     setDrawerOpen(true);
   };
 
@@ -265,15 +239,19 @@ export default function ForecastExplorer() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)]">
-      {/* Header */}
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Forecast Explorer</h1>
-        <p className="text-muted-foreground text-sm mt-1">Cashflow forecast per week</p>
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Forecast Explorer</h1>
+          <p className="text-muted-foreground text-sm mt-1">Cashflow forecast per week</p>
+        </div>
+        <Button onClick={handleNewPost} size="sm" variant="outline">
+          <Plus className="h-4 w-4 mr-1" />
+          Nieuwe post
+        </Button>
       </div>
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-xl bg-card border">
-        {/* BV Selector */}
         <Select value={localBVId || 'all'} onValueChange={(v) => setLocalBVId(v === 'all' ? null : v)}>
           <SelectTrigger className="w-[200px] h-9 text-sm">
             <SelectValue placeholder="Geconsolideerd" />
@@ -291,58 +269,38 @@ export default function ForecastExplorer() {
           </SelectContent>
         </Select>
 
-        {/* Period Toggle */}
         <div className="flex rounded-lg border overflow-hidden">
           {PERIODS.map(p => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium transition-colors',
-                period === p.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card text-muted-foreground hover:bg-muted'
-              )}
-            >
+            <button key={p.value} onClick={() => setPeriod(p.value)}
+              className={cn('px-3 py-1.5 text-xs font-medium transition-colors',
+                period === p.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
+              )}>
               {p.label}
             </button>
           ))}
         </div>
 
-        {/* Source filters */}
         <div className="flex items-center gap-2 text-xs">
           <span className="text-muted-foreground">Bron:</span>
           {SOURCES.map(s => (
             <label key={s.id} className="flex items-center gap-1 cursor-pointer">
-              <Checkbox
-                checked={selectedSources.includes(s.id)}
-                onCheckedChange={() => toggleSource(s.id)}
-                className="h-3.5 w-3.5"
-              />
+              <Checkbox checked={selectedSources.includes(s.id)} onCheckedChange={() => toggleSource(s.id)} className="h-3.5 w-3.5" />
               <span>{s.label}</span>
             </label>
           ))}
         </div>
 
-        {/* Type filter */}
         <div className="flex rounded-lg border overflow-hidden">
           {TYPE_FILTERS.map(t => (
-            <button
-              key={t.value}
-              onClick={() => setTypeFilter(t.value)}
-              className={cn(
-                'px-3 py-1.5 text-xs font-medium transition-colors',
-                typeFilter === t.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card text-muted-foreground hover:bg-muted'
-              )}
-            >
+            <button key={t.value} onClick={() => setTypeFilter(t.value)}
+              className={cn('px-3 py-1.5 text-xs font-medium transition-colors',
+                typeFilter === t.value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-muted'
+              )}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* Sync button */}
         <Button onClick={syncData} disabled={loading} size="sm" className="ml-auto">
           {loading ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <RefreshCw className="h-4 w-4 mr-1" />}
           Sync data
@@ -360,10 +318,9 @@ export default function ForecastExplorer() {
           </div>
         </div>
       ) : (
-        /* Matrix */
         <div className="flex-1 overflow-hidden rounded-xl border bg-card" ref={parentRef} style={{ overflow: 'auto' }}>
           <div style={{ minWidth: 280 + weekBuckets.length * COL_WIDTH }}>
-            {/* Sticky Header */}
+            {/* Header */}
             <div className="flex sticky top-0 z-20 bg-card border-b">
               <div className="w-[280px] min-w-[280px] sticky left-0 z-30 bg-card px-4 py-2.5 text-xs font-semibold text-muted-foreground border-r">
                 Omschrijving
@@ -375,20 +332,14 @@ export default function ForecastExplorer() {
               ))}
             </div>
 
-            {/* Virtualized rows */}
+            {/* Rows */}
             <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
               {rowVirtualizer.getVirtualItems().map(virtualRow => {
                 const row = visibleRows[virtualRow.index];
                 return (
-                  <div
-                    key={row.id}
-                    className="flex absolute w-full"
-                    style={{
-                      height: virtualRow.size,
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    {/* Label cell - sticky left */}
+                  <div key={row.id} className="flex absolute w-full"
+                    style={{ height: virtualRow.size, transform: `translateY(${virtualRow.start}px)` }}>
+                    {/* Label cell */}
                     <div
                       className={cn(
                         'w-[280px] min-w-[280px] sticky left-0 z-10 flex items-center gap-1 px-4 border-r text-sm truncate',
@@ -397,23 +348,23 @@ export default function ForecastExplorer() {
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'bg-destructive/5 font-semibold text-destructive',
                         row.type === 'summary' && row.summaryKind === 'closing' && 'bg-primary/10 font-bold text-primary',
                         row.type === 'category' && 'bg-muted/50 font-semibold',
-                        row.type === 'subcategory' && 'bg-card',
-                        row.type === 'detail' && 'bg-card italic text-muted-foreground',
+                        row.type === 'subcategory' && 'bg-card font-medium',
+                        row.type === 'detail' && 'bg-card text-muted-foreground cursor-pointer hover:bg-muted/30',
                       )}
                       style={{ paddingLeft: 16 + row.indent * 20 }}
+                      onClick={() => {
+                        if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
+                      }}
                     >
                       {row.expandable && (
-                        <button onClick={() => toggleExpand(row.id)} className="p-0.5 rounded hover:bg-muted shrink-0">
-                          {expanded.has(row.id)
-                            ? <ChevronDown className="h-3.5 w-3.5" />
-                            : <ChevronRight className="h-3.5 w-3.5" />
-                          }
+                        <button onClick={(e) => { e.stopPropagation(); toggleExpand(row.id); }} className="p-0.5 rounded hover:bg-muted shrink-0">
+                          {expanded.has(row.id) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                         </button>
                       )}
                       <span className="truncate">{row.label}</span>
                     </div>
 
-                    {/* Week value cells */}
+                    {/* Week cells */}
                     {weekBuckets.map(w => {
                       const val = row.weekValues[w.weekDate] || 0;
                       const isClosing = row.summaryKind === 'closing';
@@ -421,8 +372,7 @@ export default function ForecastExplorer() {
                       const underDrempel = isClosing && val < drempel && drempel > 0;
 
                       return (
-                        <div
-                          key={w.weekDate}
+                        <div key={w.weekDate}
                           className={cn(
                             'flex items-center justify-end px-2 border-r last:border-r-0 font-mono text-xs',
                             row.type === 'summary' && row.summaryKind === 'opening' && 'bg-primary/5',
@@ -436,9 +386,7 @@ export default function ForecastExplorer() {
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           onClick={() => {
-                            if (row.type === 'detail' && row.detailItem) {
-                              handleDetailClick(row.detailItem);
-                            }
+                            if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
                           }}
                         >
                           {val !== 0 ? fmt(val) : <span className="text-muted-foreground/30">—</span>}
@@ -458,11 +406,17 @@ export default function ForecastExplorer() {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         onRefresh={syncData}
+        bvs={bvs}
+        isNew={isNewPost}
       />
     </div>
   );
 }
 
+/**
+ * Build rows: Category → Counterparty (subcategory) → Individual items
+ * Each individual item is its own row at level 3 with its exact amount.
+ */
 function buildCategoryRows(
   items: CashflowItem[],
   weeks: string[],
@@ -481,26 +435,20 @@ function buildCategoryRows(
   for (const [cat, catItems] of catMap) {
     const catId = `${flowType}::${cat}`;
 
-    // Category row with weekly totals
+    // Level 1: Category row — sum of all items per week
     const catRow: MatrixRow = {
-      id: catId,
-      type: 'category',
-      label: cat,
-      weekValues: {},
-      indent: 0,
-      expandable: true,
+      id: catId, type: 'category', label: cat,
+      weekValues: {}, indent: 0, expandable: true,
     };
     for (const w of weeks) {
-      catRow.weekValues[w] = catItems
-        .filter(i => i.week === w)
-        .reduce((s, i) => s + i.bedrag, 0);
+      catRow.weekValues[w] = catItems.filter(i => i.week === w).reduce((s, i) => s + i.bedrag, 0);
     }
     rows.push(catRow);
 
-    // Group by subcategorie
+    // Group by counterparty/subcategorie
     const subMap = new Map<string, CashflowItem[]>();
     for (const item of catItems) {
-      const key = item.subcategorie || 'Overig';
+      const key = item.subcategorie || item.tegenpartij || 'Overig';
       if (!subMap.has(key)) subMap.set(key, []);
       subMap.get(key)!.push(item);
     }
@@ -508,29 +456,24 @@ function buildCategoryRows(
     for (const [sub, subItems] of subMap) {
       const subId = `${catId}::${sub}`;
 
+      // Level 2: Counterparty row — sum of all items from this counterparty per week
       const subRow: MatrixRow = {
-        id: subId,
-        type: 'subcategory',
-        label: sub,
-        parentId: catId,
-        weekValues: {},
-        indent: 1,
-        expandable: true,
+        id: subId, type: 'subcategory', label: sub, parentId: catId,
+        weekValues: {}, indent: 1, expandable: true,
       };
       for (const w of weeks) {
-        subRow.weekValues[w] = subItems
-          .filter(i => i.week === w)
-          .reduce((s, i) => s + i.bedrag, 0);
+        subRow.weekValues[w] = subItems.filter(i => i.week === w).reduce((s, i) => s + i.bedrag, 0);
       }
       rows.push(subRow);
 
-      // Detail items
-      for (const item of subItems) {
-        const detailId = `${subId}::${item.ref_id || item.omschrijving}::${item.week}`;
+      // Level 3: Each individual item as its own row
+      subItems.forEach((item, idx) => {
+        // Use index + ref_id + week to guarantee unique ID per row
+        const detailId = `${subId}::detail::${item.ref_id || 'x'}::${item.week}::${idx}`;
         const detailRow: MatrixRow = {
           id: detailId,
           type: 'detail',
-          label: item.omschrijving,
+          label: item.omschrijving || `€${item.bedrag.toLocaleString('nl-NL')}`,
           parentId: subId,
           weekValues: { [item.week]: item.bedrag },
           indent: 2,
@@ -538,7 +481,7 @@ function buildCategoryRows(
           detailItem: item,
         };
         rows.push(detailRow);
-      }
+      });
     }
   }
 
