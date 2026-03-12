@@ -1,0 +1,314 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
+import { Download, Check, Plus, CreditCard } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useBV } from '@/contexts/BVContext';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface Invoice {
+  id: string;
+  bv_id: string;
+  counterparty_id: string | null;
+  bedrag: number;
+  vervaldatum: string | null;
+  factuurnummer: string | null;
+  status: string | null;
+}
+
+interface PaymentRun {
+  id: string;
+  naam: string | null;
+  status: string;
+  bv_id: string | null;
+  totaal_bedrag: number | null;
+  aantal_facturen: number | null;
+  aangemaakt_op: string | null;
+}
+
+interface PaymentRunItem {
+  id: string;
+  payment_run_id: string;
+  invoice_id: string;
+  bedrag: number;
+  iban_begunstigde: string | null;
+  naam_begunstigde: string | null;
+}
+
+interface Counterparty { id: string; naam: string; iban?: string | null; }
+interface BankAccount { id: string; bv_id: string; iban: string | null; naam: string | null; }
+
+export default function Betalingsronden() {
+  const { bvs } = useBV();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [paymentRuns, setPaymentRuns] = useState<PaymentRun[]>([]);
+  const [runItems, setRunItems] = useState<PaymentRunItem[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  const cpMap = useMemo(() => new Map(counterparties.map(c => [c.id, c])), [counterparties]);
+  const bvMap = useMemo(() => new Map(bvs.map(b => [b.id, b])), [bvs]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const [inv, cp, ba, pr, pri] = await Promise.all([
+      supabase.from('invoices').select('*').eq('status', 'goedgekeurd'),
+      supabase.from('counterparties').select('*'),
+      supabase.from('bank_accounts').select('*'),
+      supabase.from('payment_runs').select('*').order('aangemaakt_op', { ascending: false }),
+      supabase.from('payment_run_items').select('*'),
+    ]);
+    if (inv.data) setInvoices(inv.data);
+    if (cp.data) setCounterparties(cp.data as Counterparty[]);
+    if (ba.data) setBankAccounts(ba.data);
+    if (pr.data) setPaymentRuns(pr.data);
+    if (pri.data) setRunItems(pri.data);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const toggleSelect = (id: string) => {
+    const s = new Set(selected);
+    if (s.has(id)) s.delete(id); else s.add(id);
+    setSelected(s);
+  };
+
+  const selectedTotal = useMemo(() =>
+    invoices.filter(i => selected.has(i.id)).reduce((s, i) => s + i.bedrag, 0),
+    [invoices, selected]);
+
+  const createRun = async () => {
+    if (selected.size === 0) return;
+    const items = invoices.filter(i => selected.has(i.id));
+    const total = items.reduce((s, i) => s + i.bedrag, 0);
+
+    const { data: run, error } = await supabase.from('payment_runs').insert({
+      naam: `Betalingsronde ${format(new Date(), 'dd-MM-yyyy HH:mm')}`,
+      status: 'concept',
+      totaal_bedrag: total,
+      aantal_facturen: items.length,
+    }).select().single();
+
+    if (error || !run) { toast.error('Fout bij aanmaken'); return; }
+
+    const runItemsData = items.map(i => {
+      const cp = cpMap.get(i.counterparty_id || '');
+      return {
+        payment_run_id: run.id,
+        invoice_id: i.id,
+        bedrag: i.bedrag,
+        naam_begunstigde: cp?.naam || 'Onbekend',
+        iban_begunstigde: (cp as any)?.iban || null,
+      };
+    });
+
+    await supabase.from('payment_run_items').insert(runItemsData);
+    toast.success(`Betalingsronde aangemaakt met ${items.length} facturen`);
+    setSelected(new Set());
+    fetchData();
+  };
+
+  const generateSEPA = (run: PaymentRun) => {
+    const items = runItems.filter(ri => ri.payment_run_id === run.id);
+    const bv = bvMap.get(run.bv_id || '');
+    const ba = bankAccounts.find(a => a.bv_id === (run.bv_id || bvs[0]?.id));
+    const debtorIBAN = ba?.iban?.replace(/\s/g, '') || 'NL00BANK0000000000';
+    const debtorName = bv?.naam || 'Boost';
+    const msgId = `MSG-${run.id.slice(0, 8)}-${Date.now()}`;
+    const creDtTm = new Date().toISOString();
+    const nbOfTxs = items.length;
+    const ctrlSum = items.reduce((s, i) => s + i.bedrag, 0).toFixed(2);
+
+    const txns = items.map((item, idx) => {
+      const iban = item.iban_begunstigde?.replace(/\s/g, '') || 'NL00BANK0000000000';
+      return `
+        <CdtTrfTxInf>
+          <PmtId><EndToEndId>E2E-${run.id.slice(0, 8)}-${idx + 1}</EndToEndId></PmtId>
+          <Amt><InstdAmt Ccy="EUR">${item.bedrag.toFixed(2)}</InstdAmt></Amt>
+          <CdtrAgt><FinInstnId><BIC>BUNQNL2AXXX</BIC></FinInstnId></CdtrAgt>
+          <Cdtr><Nm>${escXml(item.naam_begunstigde || 'Onbekend')}</Nm></Cdtr>
+          <CdtrAcct><Id><IBAN>${iban}</IBAN></Id></CdtrAcct>
+          <RmtInf><Ustrd>Betaling factuur</Ustrd></RmtInf>
+        </CdtTrfTxInf>`;
+    }).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.03">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>${msgId}</MsgId>
+      <CreDtTm>${creDtTm}</CreDtTm>
+      <NbOfTxs>${nbOfTxs}</NbOfTxs>
+      <CtrlSum>${ctrlSum}</CtrlSum>
+      <InitgPty><Nm>${escXml(debtorName)}</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>PMT-${run.id.slice(0, 8)}</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <NbOfTxs>${nbOfTxs}</NbOfTxs>
+      <CtrlSum>${ctrlSum}</CtrlSum>
+      <PmtTpInf><SvcLvl><Cd>SEPA</Cd></SvcLvl></PmtTpInf>
+      <ReqdExctnDt>${format(new Date(), 'yyyy-MM-dd')}</ReqdExctnDt>
+      <Dbtr><Nm>${escXml(debtorName)}</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>${debtorIBAN}</IBAN></Id></DbtrAcct>
+      <DbtrAgt><FinInstnId><BIC>BUNQNL2AXXX</BIC></FinInstnId></DbtrAgt>
+      <ChrgBr>SLEV</ChrgBr>${txns}
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>`;
+
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sepa-${run.id.slice(0, 8)}.xml`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Update status
+    supabase.from('payment_runs').update({ status: 'klaargezet' }).eq('id', run.id).then(() => fetchData());
+    toast.success('SEPA XML gedownload');
+  };
+
+  const markExecuted = async (run: PaymentRun) => {
+    const items = runItems.filter(ri => ri.payment_run_id === run.id);
+    await supabase.from('payment_runs').update({ status: 'uitgevoerd', uitgevoerd_op: new Date().toISOString() }).eq('id', run.id);
+    for (const item of items) {
+      await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.invoice_id);
+      await supabase.from('audit_log').insert({
+        tabel: 'invoices', actie: 'status → betaald', record_id: item.invoice_id,
+        oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+      });
+    }
+    toast.success('Betalingsronde uitgevoerd, facturen op betaald gezet');
+    fetchData();
+  };
+
+  const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
+
+  const STATUS_BADGE: Record<string, string> = {
+    concept: 'bg-muted text-muted-foreground',
+    klaargezet: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    uitgevoerd: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  };
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-foreground">Betalingsronden</h1>
+
+      {/* Section A: Compose */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Nieuwe betalingsronde samenstellen</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Geen goedgekeurde facturen beschikbaar</p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10"><Checkbox checked={selected.size === invoices.length && invoices.length > 0} onCheckedChange={() => { if (selected.size === invoices.length) setSelected(new Set()); else setSelected(new Set(invoices.map(i => i.id))); }} /></TableHead>
+                    <TableHead>Relatie</TableHead>
+                    <TableHead>BV</TableHead>
+                    <TableHead className="text-right">Bedrag</TableHead>
+                    <TableHead>Vervaldatum</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map(inv => {
+                    const cp = cpMap.get(inv.counterparty_id || '');
+                    const bv = bvMap.get(inv.bv_id);
+                    return (
+                      <TableRow key={inv.id}>
+                        <TableCell><Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} /></TableCell>
+                        <TableCell className="text-sm">{cp?.naam || '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: bv?.kleur || '#888' }} />
+                            <span className="text-sm">{bv?.naam || '—'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmt(inv.bedrag)}</TableCell>
+                        <TableCell className="text-sm">{inv.vervaldatum ? format(new Date(inv.vervaldatum), 'd MMM yyyy', { locale: nl }) : '—'}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              {selected.size > 0 && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                  <span className="text-sm font-medium">{selected.size} facturen geselecteerd — totaal: <span className="font-mono">{fmt(selectedTotal)}</span></span>
+                  <Button onClick={createRun}><Plus className="mr-2 h-4 w-4" /> Maak betalingsronde</Button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section B: Previous runs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Eerdere betalingsronden</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {paymentRuns.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Nog geen betalingsronden</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Naam</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Bedrag</TableHead>
+                  <TableHead className="text-right">Facturen</TableHead>
+                  <TableHead>Aangemaakt</TableHead>
+                  <TableHead>Acties</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paymentRuns.map(run => (
+                  <TableRow key={run.id}>
+                    <TableCell className="text-sm font-medium">{run.naam || '—'}</TableCell>
+                    <TableCell><Badge className={STATUS_BADGE[run.status] || ''}>{run.status}</Badge></TableCell>
+                    <TableCell className="text-right font-mono text-sm">{fmt(run.totaal_bedrag || 0)}</TableCell>
+                    <TableCell className="text-right text-sm">{run.aantal_facturen || 0}</TableCell>
+                    <TableCell className="text-sm">{run.aangemaakt_op ? format(new Date(run.aangemaakt_op), 'd MMM yyyy HH:mm', { locale: nl }) : '—'}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        {run.status !== 'uitgevoerd' && (
+                          <Button size="sm" variant="outline" onClick={() => generateSEPA(run)}>
+                            <Download className="mr-1.5 h-3.5 w-3.5" /> SEPA XML
+                          </Button>
+                        )}
+                        {(run.status === 'klaargezet') && (
+                          <Button size="sm" variant="outline" onClick={() => markExecuted(run)}>
+                            <Check className="mr-1.5 h-3.5 w-3.5" /> Markeer uitgevoerd
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function escXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}

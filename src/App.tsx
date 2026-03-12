@@ -11,6 +11,10 @@ import BVOverzicht from "./pages/BVOverzicht";
 import MTPipeline from "./pages/MTPipeline";
 import BuffersLiquiditeit from "./pages/BuffersLiquiditeit";
 import RecurringKosten from "./pages/RecurringKosten";
+import Facturen from "./pages/Facturen";
+import Betalingsronden from "./pages/Betalingsronden";
+import BTWBelasting from "./pages/BTWBelasting";
+import LeningenDividend from "./pages/LeningenDividend";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
@@ -29,12 +33,12 @@ const App = () => (
               <Route path="/forecast" element={<ForecastExplorer />} />
               <Route path="/bv-overzicht" element={<BVOverzicht />} />
               <Route path="/mt-pipeline" element={<MTPipeline />} />
-              <Route path="/facturen" element={<PlaceholderPage title="Facturen & Goedkeuringen" />} />
-              <Route path="/betalingsronden" element={<PlaceholderPage title="Betalingsronden" />} />
+              <Route path="/facturen" element={<Facturen />} />
+              <Route path="/betalingsronden" element={<Betalingsronden />} />
               <Route path="/recurring" element={<RecurringKosten />} />
               <Route path="/buffers" element={<BuffersLiquiditeit />} />
-              <Route path="/btw" element={<PlaceholderPage title="BTW & Belasting" />} />
-              <Route path="/leningen" element={<PlaceholderPage title="Leningen & Dividend" />} />
+              <Route path="/btw" element={<BTWBelasting />} />
+              <Route path="/leningen" element={<LeningenDividend />} />
               <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
