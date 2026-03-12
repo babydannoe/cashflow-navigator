@@ -237,6 +237,30 @@ export default function ForecastExplorer() {
 
   const COL_WIDTH = 120;
 
+  const exportCSV = useCallback(() => {
+    if (!visibleRows.length || !weekBuckets.length) return;
+    const sep = ';';
+    const header = ['Omschrijving', ...weekBuckets.map(w => w.label)].join(sep);
+    const lines = visibleRows.map(row => {
+      const label = `${'  '.repeat(row.indent)}${row.label}`.replace(/;/g, ',');
+      const vals = weekBuckets.map(w => {
+        const v = row.weekValues[w.weekDate];
+        return v != null ? v.toFixed(2).replace('.', ',') : '';
+      });
+      return [label, ...vals].join(sep);
+    });
+    const bom = '\uFEFF';
+    const csv = bom + [header, ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `forecast-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV geëxporteerd');
+  }, [visibleRows, weekBuckets]);
+
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)]">
       <div className="mb-4 flex items-center justify-between">
@@ -244,10 +268,16 @@ export default function ForecastExplorer() {
           <h1 className="text-2xl font-bold tracking-tight">Forecast Explorer</h1>
           <p className="text-muted-foreground text-sm mt-1">Cashflow forecast per week</p>
         </div>
-        <Button onClick={handleNewPost} size="sm" variant="outline">
-          <Plus className="h-4 w-4 mr-1" />
-          Nieuwe post
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={exportCSV} size="sm" variant="outline" disabled={!loaded}>
+            <Download className="h-4 w-4 mr-1" />
+            Exporteer CSV
+          </Button>
+          <Button onClick={handleNewPost} size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-1" />
+            Nieuwe post
+          </Button>
+        </div>
       </div>
 
       {/* Filter Bar */}
