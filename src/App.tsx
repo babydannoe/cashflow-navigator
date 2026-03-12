@@ -11,6 +11,10 @@ import BVOverzicht from "./pages/BVOverzicht";
 import MTPipeline from "./pages/MTPipeline";
 import BuffersLiquiditeit from "./pages/BuffersLiquiditeit";
 import RecurringKosten from "./pages/RecurringKosten";
+import Facturen from "./pages/Facturen";
+import Betalingsronden from "./pages/Betalingsronden";
+import BTWBelasting from "./pages/BTWBelasting";
+import LeningenDividend from "./pages/LeningenDividend";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
