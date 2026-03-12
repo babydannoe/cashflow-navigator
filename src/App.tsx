@@ -37,8 +37,8 @@ const App = () => (
               <Route path="/betalingsronden" element={<Betalingsronden />} />
               <Route path="/recurring" element={<RecurringKosten />} />
               <Route path="/buffers" element={<BuffersLiquiditeit />} />
-              <Route path="/btw" element={<PlaceholderPage title="BTW & Belasting" />} />
-              <Route path="/leningen" element={<PlaceholderPage title="Leningen & Dividend" />} />
+              <Route path="/btw" element={<BTWBelasting />} />
+              <Route path="/leningen" element={<LeningenDividend />} />
               <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
