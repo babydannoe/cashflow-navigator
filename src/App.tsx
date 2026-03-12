@@ -33,8 +33,8 @@ const App = () => (
               <Route path="/forecast" element={<ForecastExplorer />} />
               <Route path="/bv-overzicht" element={<BVOverzicht />} />
               <Route path="/mt-pipeline" element={<MTPipeline />} />
-              <Route path="/facturen" element={<PlaceholderPage title="Facturen & Goedkeuringen" />} />
-              <Route path="/betalingsronden" element={<PlaceholderPage title="Betalingsronden" />} />
+              <Route path="/facturen" element={<Facturen />} />
+              <Route path="/betalingsronden" element={<Betalingsronden />} />
               <Route path="/recurring" element={<RecurringKosten />} />
               <Route path="/buffers" element={<BuffersLiquiditeit />} />
               <Route path="/btw" element={<PlaceholderPage title="BTW & Belasting" />} />
