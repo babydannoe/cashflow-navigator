@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useBV } from '@/contexts/BVContext';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus } from 'lucide-react';
+import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
