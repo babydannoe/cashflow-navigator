@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { CalendarIcon, ArrowRight, X, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Trash2, Save, X, CheckCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import type { BV } from '@/contexts/BVContext';
 
 export interface DrilldownItem {
+  bv_id: string;
   bv_naam: string;
   bv_kleur: string;
   categorie: string;
@@ -30,6 +36,7 @@ export interface DrilldownItem {
   omschrijving: string;
   kans_percentage?: number;
   frequentie?: string;
+  cashflow_item_id?: string;
 }
 
 interface Props {
@@ -37,210 +44,316 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onRefresh: () => void;
+  bvs: BV[];
+  isNew?: boolean;
 }
 
-const bronColors: Record<string, string> = {
-  handmatig: 'bg-secondary text-secondary-foreground',
-  recurring: 'bg-primary/10 text-primary',
-  mt_pipeline: 'bg-[#d9770620] text-[#d97706]',
-  exact: 'bg-[#05966920] text-[#059669]',
-  bunq: 'bg-[#3b82f620] text-[#3b82f6]',
-};
+const CATEGORIES = ['Omzet', 'Diensten', 'Inkoop', 'Huurkosten', 'Personeelskosten', 'Marketing', 'Belastingen', 'Financiering', 'Abonnementen', 'Dividend', 'Pipeline omzet', 'Overig'];
 
-const statusColors: Record<string, string> = {
-  open: 'bg-primary/10 text-primary',
-  betaald: 'bg-[#05966920] text-[#059669]',
-  vervallen: 'bg-destructive/10 text-destructive',
-  forecast: 'bg-[#d9770620] text-[#d97706]',
-  lead: 'bg-secondary text-secondary-foreground',
-  voorstel: 'bg-primary/10 text-primary',
-  onderhandeling: 'bg-[#d9770620] text-[#d97706]',
-};
-
-export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh }: Props) {
-  const [moveDate, setMoveDate] = useState<Date>();
-  const [showDatePicker, setShowDatePicker] = useState(false);
+export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, isNew = false }: Props) {
   const [saving, setSaving] = useState(false);
 
-  if (!item) return null;
+  // Form state
+  const [omschrijving, setOmschrijving] = useState('');
+  const [bedrag, setBedrag] = useState('');
+  const [vervaldatum, setVervaldatum] = useState<Date | undefined>();
+  const [categorie, setCategorie] = useState('');
+  const [tegenpartij, setTegenpartij] = useState('');
+  const [bvId, setBvId] = useState('');
+  const [type, setType] = useState<'in' | 'out'>('out');
+  const [opmerking, setOpmerking] = useState('');
 
-  const fmt = (n: number) =>
-    new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+  // Reset form when item changes
+  useEffect(() => {
+    if (isNew) {
+      setOmschrijving('');
+      setBedrag('');
+      setVervaldatum(undefined);
+      setCategorie('Overig');
+      setTegenpartij('');
+      setBvId(bvs[0]?.id || '');
+      setType('out');
+      setOpmerking('');
+    } else if (item) {
+      setOmschrijving(item.omschrijving || '');
+      setBedrag(String(item.bedrag || 0));
+      setVervaldatum(item.vervaldatum ? new Date(item.vervaldatum) : item.week ? new Date(item.week) : undefined);
+      setCategorie(item.categorie || 'Overig');
+      setTegenpartij(item.tegenpartij || '');
+      setBvId(item.bv_id || '');
+      setType(item.type === 'in' ? 'in' : 'out');
+      setOpmerking('');
+    }
+  }, [item, isNew, open, bvs]);
 
-  const handleMoveWeek = async () => {
-    if (!moveDate || !item.ref_id) return;
+  const handleSave = async () => {
+    if (!bvId || !bedrag) {
+      toast.error('Vul minimaal BV en bedrag in');
+      return;
+    }
     setSaving(true);
     try {
-      const newWeek = format(moveDate, 'yyyy-MM-dd');
-      // Insert override in cashflow_items
-      await supabase.from('cashflow_items').insert({
-        bv_id: item.ref_id, // We need bv_id - we'll use a workaround
-        week: newWeek,
-        type: item.type === 'in' ? 'in' : 'out',
-        bedrag: item.bedrag,
-        omschrijving: `Verplaatst: ${item.omschrijving}`,
-        categorie: item.categorie,
-        subcategorie: item.subcategorie,
-        tegenpartij: item.tegenpartij,
-        bron: 'handmatig',
-        ref_id: item.ref_id,
-        ref_type: item.ref_type,
-      });
-      toast.success('Verplaatst naar ' + format(moveDate, 'd MMM yyyy', { locale: nl }));
-      setShowDatePicker(false);
+      const weekDate = vervaldatum ? getISOWeekStart(vervaldatum).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+      if (isNew) {
+        // Insert new cashflow_item
+        const { error } = await supabase.from('cashflow_items').insert({
+          bv_id: bvId,
+          week: weekDate,
+          type,
+          bedrag: Math.abs(parseFloat(bedrag)),
+          omschrijving,
+          categorie,
+          subcategorie: tegenpartij || omschrijving,
+          tegenpartij,
+          bron: 'handmatig',
+          ref_type: 'handmatig',
+        });
+        if (error) throw error;
+        toast.success('Nieuwe post toegevoegd');
+      } else if (item?.ref_type === 'invoice' && item?.ref_id) {
+        // Update the source invoice
+        const { error } = await supabase.from('invoices').update({
+          bedrag: Math.abs(parseFloat(bedrag)),
+          vervaldatum: vervaldatum ? format(vervaldatum, 'yyyy-MM-dd') : null,
+        }).eq('id', item.ref_id);
+        if (error) throw error;
+        toast.success('Factuur bijgewerkt');
+      } else if (item?.cashflow_item_id) {
+        // Update the cashflow_item directly
+        const { error } = await supabase.from('cashflow_items').update({
+          bedrag: Math.abs(parseFloat(bedrag)),
+          omschrijving,
+          categorie,
+          subcategorie: tegenpartij || omschrijving,
+          tegenpartij,
+          week: weekDate,
+          type,
+          bv_id: bvId,
+        }).eq('id', item.cashflow_item_id);
+        if (error) throw error;
+        toast.success('Post bijgewerkt');
+      } else {
+        // Fallback: insert as new override
+        const { error } = await supabase.from('cashflow_items').insert({
+          bv_id: bvId,
+          week: weekDate,
+          type,
+          bedrag: Math.abs(parseFloat(bedrag)),
+          omschrijving,
+          categorie,
+          subcategorie: tegenpartij || omschrijving,
+          tegenpartij,
+          bron: 'handmatig',
+          ref_type: 'handmatig',
+        });
+        if (error) throw error;
+        toast.success('Post opgeslagen');
+      }
+
       onRefresh();
-    } catch (e) {
-      toast.error('Fout bij verplaatsen');
+      onClose();
+    } catch (e: any) {
+      toast.error('Fout bij opslaan: ' + (e.message || 'Onbekende fout'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setSaving(true);
+    try {
+      if (item?.cashflow_item_id) {
+        await supabase.from('cashflow_items').delete().eq('id', item.cashflow_item_id);
+      } else if (item?.ref_type === 'invoice' && item?.ref_id) {
+        await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
+      }
+      toast.success('Post verwijderd');
+      onRefresh();
+      onClose();
+    } catch (e: any) {
+      toast.error('Fout bij verwijderen');
     } finally {
       setSaving(false);
     }
   };
 
   const handleMarkPaid = async () => {
-    if (!item.ref_id || item.ref_type !== 'invoice') return;
+    if (!item?.ref_id || item.ref_type !== 'invoice') return;
     setSaving(true);
     try {
-      await supabase
-        .from('invoices')
-        .update({ status: 'betaald' })
-        .eq('id', item.ref_id);
+      await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
       toast.success('Factuur gemarkeerd als betaald');
       onRefresh();
       onClose();
-    } catch (e) {
+    } catch {
       toast.error('Fout bij markeren');
     } finally {
       setSaving(false);
     }
   };
 
+  const title = isNew ? 'Nieuwe post toevoegen' : 'Post bewerken';
+
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="w-[400px] sm:w-[400px] overflow-y-auto">
+      <SheetContent className="w-[420px] sm:w-[420px] overflow-y-auto">
         <SheetHeader className="pb-4 border-b">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
-            <span className="text-sm text-muted-foreground">{item.bv_naam}</span>
-          </div>
-          <SheetTitle className="text-lg">{item.omschrijving}</SheetTitle>
+          {!isNew && item && (
+            <div className="flex items-center gap-2 mb-1">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
+              <span className="text-sm text-muted-foreground">{item.bv_naam}</span>
+            </div>
+          )}
+          <SheetTitle className="text-lg">{title}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-5 pt-5">
+        <div className="space-y-4 pt-5">
+          {/* BV */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">BV</Label>
+            <Select value={bvId} onValueChange={setBvId}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Selecteer BV" />
+              </SelectTrigger>
+              <SelectContent>
+                {bvs.map(bv => (
+                  <SelectItem key={bv.id} value={bv.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: bv.kleur ?? '#888' }} />
+                      {bv.naam}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Type in/out */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Type</Label>
+            <div className="flex rounded-lg border overflow-hidden">
+              <button
+                onClick={() => setType('in')}
+                className={cn('flex-1 px-3 py-1.5 text-sm font-medium transition-colors', type === 'in' ? 'bg-[#059669] text-white' : 'bg-card text-muted-foreground hover:bg-muted')}
+              >
+                Cash In
+              </button>
+              <button
+                onClick={() => setType('out')}
+                className={cn('flex-1 px-3 py-1.5 text-sm font-medium transition-colors', type === 'out' ? 'bg-destructive text-destructive-foreground' : 'bg-card text-muted-foreground hover:bg-muted')}
+              >
+                Cash Uit
+              </button>
+            </div>
+          </div>
+
+          {/* Omschrijving */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Omschrijving</Label>
+            <Input value={omschrijving} onChange={e => setOmschrijving(e.target.value)} placeholder="Bijv. Factuur MB-001" className="h-9 text-sm" />
+          </div>
+
           {/* Bedrag */}
-          <div className="text-center py-4 rounded-xl bg-muted/50">
-            <p className="text-xs text-muted-foreground mb-1">
-              {item.type === 'in' ? 'Inkomend' : 'Uitgaand'}
-            </p>
-            <p
-              className="text-3xl font-bold font-mono tracking-tight"
-              style={{ color: item.type === 'in' ? '#059669' : undefined }}
-            >
-              {item.type === 'out' ? '- ' : '+ '}
-              {fmt(item.bedrag)}
-            </p>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Bedrag (€)</Label>
+            <Input type="number" value={bedrag} onChange={e => setBedrag(e.target.value)} placeholder="0.00" step="0.01" className="h-9 text-sm font-mono" />
           </div>
 
-          {/* Details grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <DetailRow label="Categorie" value={item.categorie} />
-            <DetailRow label="Subcategorie" value={item.subcategorie} />
-            <DetailRow label="Tegenpartij" value={item.tegenpartij} />
-            {item.factuurnummer && (
-              <DetailRow label="Factuurnummer" value={item.factuurnummer} mono />
-            )}
-            {item.kans_percentage != null && (
-              <DetailRow label="Kans" value={`${item.kans_percentage}%`} />
-            )}
-            {item.frequentie && <DetailRow label="Frequentie" value={item.frequentie} />}
+          {/* Vervaldatum */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Vervaldatum</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn('w-full h-9 justify-start text-left font-normal text-sm', !vervaldatum && 'text-muted-foreground')}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {vervaldatum ? format(vervaldatum, 'd MMM yyyy', { locale: nl }) : 'Kies een datum'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={vervaldatum} onSelect={setVervaldatum} className="p-3 pointer-events-auto" />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          {/* Badges */}
-          <div className="flex flex-wrap gap-2">
-            <Badge className={cn('text-xs', bronColors[item.bron] || bronColors.handmatig)}>
-              {item.bron === 'mt_pipeline' ? 'MT Pipeline' : item.bron}
-            </Badge>
-            {item.status && (
-              <Badge className={cn('text-xs', statusColors[item.status] || statusColors.open)}>
-                {item.status}
-              </Badge>
-            )}
+          {/* Categorie */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Categorie</Label>
+            <Select value={categorie} onValueChange={setCategorie}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Datum */}
-          <div className="text-sm">
-            <p className="text-muted-foreground mb-0.5">Verwachte betaaldatum</p>
-            <p className="font-medium">
-              {item.vervaldatum
-                ? format(new Date(item.vervaldatum), 'd MMMM yyyy', { locale: nl })
-                : item.verwachte_week
-                  ? format(new Date(item.verwachte_week), 'd MMMM yyyy', { locale: nl })
-                  : 'Niet gespecificeerd'}
-            </p>
+          {/* Tegenpartij */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Relatie / Bedrijfsnaam</Label>
+            <Input value={tegenpartij} onChange={e => setTegenpartij(e.target.value)} placeholder="Bijv. Jongens van Boven" className="h-9 text-sm" />
           </div>
+
+          {/* Opmerking */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Opmerking (optioneel)</Label>
+            <Textarea value={opmerking} onChange={e => setOpmerking(e.target.value)} placeholder="Extra info..." rows={2} className="text-sm" />
+          </div>
+
+          {/* Ref info (read-only when editing) */}
+          {!isNew && item && (
+            <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
+              {item.factuurnummer && <p>Factuurnr: <span className="font-mono">{item.factuurnummer}</span></p>}
+              <p>Bron: {item.bron}</p>
+              {item.ref_type && <p>Type: {item.ref_type}</p>}
+            </div>
+          )}
 
           {/* Actions */}
-          <div className="space-y-3 pt-2 border-t">
-            {/* Move to other week */}
-            {showDatePicker ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Verplaats naar andere week</p>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !moveDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {moveDate
-                        ? format(moveDate, 'd MMM yyyy', { locale: nl })
-                        : 'Kies een datum'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={moveDate}
-                      onSelect={setMoveDate}
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-                <div className="flex gap-2">
-                  <Button onClick={handleMoveWeek} disabled={!moveDate || saving} size="sm" className="flex-1">
-                    <ArrowRight className="mr-1 h-3.5 w-3.5" />
-                    Verplaats
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setShowDatePicker(false)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => setShowDatePicker(true)}
-              >
-                <ArrowRight className="mr-2 h-4 w-4" />
-                Verplaats naar andere week
-              </Button>
-            )}
+          <div className="space-y-2 pt-3 border-t">
+            <Button onClick={handleSave} disabled={saving} className="w-full">
+              <Save className="mr-2 h-4 w-4" />
+              {isNew ? 'Toevoegen' : 'Opslaan'}
+            </Button>
 
-            {/* Mark as paid */}
-            {item.ref_type === 'invoice' && item.status !== 'betaald' && (
-              <Button
-                variant="outline"
-                className="w-full text-[#059669] border-[#059669]/30 hover:bg-[#059669]/10"
-                onClick={handleMarkPaid}
-                disabled={saving}
-              >
+            {!isNew && item?.ref_type === 'invoice' && item.status !== 'betaald' && (
+              <Button variant="outline" className="w-full text-[#059669] border-[#059669]/30 hover:bg-[#059669]/10" onClick={handleMarkPaid} disabled={saving}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 Markeer als betaald
               </Button>
             )}
+
+            <div className="flex gap-2">
+              {!isNew && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="flex-1" disabled={saving}>
+                      <Trash2 className="mr-1 h-3.5 w-3.5" />
+                      Verwijderen
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Post verwijderen?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Weet je zeker dat je "{omschrijving}" wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Annuleren</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete}>Verwijderen</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <Button variant="ghost" size="sm" className="flex-1" onClick={onClose}>
+                <X className="mr-1 h-3.5 w-3.5" />
+                Annuleren
+              </Button>
+            </div>
           </div>
         </div>
       </SheetContent>
@@ -248,19 +361,11 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh }: Prop
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div>
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className={cn('font-medium truncate', mono && 'font-mono text-xs')}>{value}</p>
-    </div>
-  );
+function getISOWeekStart(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
