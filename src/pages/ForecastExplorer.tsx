@@ -410,15 +410,15 @@ export default function ForecastExplorer() {
                         <div key={w.weekDate}
                           className={cn(
                             'flex items-center justify-end px-2 border-r border-border last:border-r-0 font-mono text-xs tabular-nums',
-                            isOpening && 'bg-[hsl(47_91%_53%/0.04)]',
+                            isOpening && 'matrix-opening-bg',
                             row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
                             row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
-                            isClosing && 'bg-[hsl(47_91%_53%/0.04)] font-bold',
-                            row.type === 'category' && 'bg-card font-semibold',
-                            row.type === 'subcategory' && 'bg-[hsl(0_0%_6%)]',
-                            row.type === 'detail' && 'bg-background cursor-pointer',
+                            isClosing && 'bg-card font-bold',
+                            row.type === 'category' && 'matrix-cat-bg font-semibold',
+                            row.type === 'subcategory' && 'matrix-sub-bg',
+                            row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
                             isNeg && 'text-destructive',
-                            underDrempel && 'bg-[hsl(0_84%_60%/0.06)] text-destructive font-bold',
+                            underDrempel && 'matrix-negative-bg text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           onClick={() => {

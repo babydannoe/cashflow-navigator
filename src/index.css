@@ -196,4 +196,20 @@
   .amount-negative {
     color: hsl(var(--destructive));
   }
+
+  .matrix-cat-bg {
+    background-color: hsl(var(--matrix-cat-bg));
+  }
+  .matrix-sub-bg {
+    background-color: hsl(var(--matrix-sub-bg));
+  }
+  .matrix-detail-bg {
+    background-color: hsl(var(--matrix-detail-bg));
+  }
+  .matrix-opening-bg {
+    background-color: hsl(var(--matrix-opening-bg));
+  }
+  .matrix-negative-bg {
+    background-color: hsl(var(--matrix-negative-bg));
+  }
 }
