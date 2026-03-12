@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BVProvider } from "@/contexts/BVContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "./pages/Dashboard";
 import ForecastExplorer from "./pages/ForecastExplorer";
@@ -22,30 +23,32 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <BVProvider>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/forecast" element={<ForecastExplorer />} />
-              <Route path="/bv-overzicht" element={<BVOverzicht />} />
-              <Route path="/mt-pipeline" element={<MTPipeline />} />
-              <Route path="/facturen" element={<Facturen />} />
-              <Route path="/betalingsronden" element={<Betalingsronden />} />
-              <Route path="/recurring" element={<RecurringKosten />} />
-              <Route path="/buffers" element={<BuffersLiquiditeit />} />
-              <Route path="/btw" element={<BTWBelasting />} />
-              <Route path="/leningen" element={<LeningenDividend />} />
-              <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AppLayout>
-        </BVProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <BVProvider>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/forecast" element={<ForecastExplorer />} />
+                <Route path="/bv-overzicht" element={<BVOverzicht />} />
+                <Route path="/mt-pipeline" element={<MTPipeline />} />
+                <Route path="/facturen" element={<Facturen />} />
+                <Route path="/betalingsronden" element={<Betalingsronden />} />
+                <Route path="/recurring" element={<RecurringKosten />} />
+                <Route path="/buffers" element={<BuffersLiquiditeit />} />
+                <Route path="/btw" element={<BTWBelasting />} />
+                <Route path="/leningen" element={<LeningenDividend />} />
+                <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </AppLayout>
+          </BVProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

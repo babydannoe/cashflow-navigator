@@ -5,7 +5,77 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @layer base {
-  :root {
+  /* ===== LIGHT THEME (default) ===== */
+  :root,
+  [data-theme="light"] {
+    --background: 40 4% 97%;
+    --foreground: 0 0% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+
+    --primary: 43 74% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 4%;
+
+    --muted: 40 3% 94%;
+    --muted-foreground: 0 0% 42%;
+
+    --accent: 43 74% 46%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 64% 37%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 33 90% 44%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 40 3% 90%;
+    --input: 40 3% 90%;
+    --ring: 43 74% 46%;
+
+    --radius: 0.75rem;
+
+    --surface-raised: 40 3% 94%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 42%;
+    --sidebar-primary: 43 74% 46%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 5% 96%;
+    --sidebar-accent-foreground: 0 0% 4%;
+    --sidebar-border: 40 3% 90%;
+    --sidebar-ring: 43 74% 46%;
+
+    --kpi-blue: 220 70% 50%;
+    --kpi-green: 142 64% 37%;
+    --kpi-orange: 33 90% 44%;
+    --kpi-red: 0 72% 51%;
+
+    --font-display: 'Syne', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    /* Light-mode specific matrix colors */
+    --matrix-cat-bg: 40 5% 96%;
+    --matrix-sub-bg: 40 6% 98%;
+    --matrix-detail-bg: 0 0% 100%;
+    --matrix-hover-bg: 40 3% 94%;
+    --matrix-opening-bg: 45 70% 95%;
+    --matrix-negative-bg: 0 60% 97%;
+  }
+
+  /* ===== DARK THEME ===== */
+  .dark,
+  [data-theme="dark"] {
     --background: 0 0% 4%;
     --foreground: 0 0% 100%;
 
@@ -40,7 +110,7 @@
     --input: 0 0% 16%;
     --ring: 47 91% 53%;
 
-    --radius: 0.75rem;
+    --surface-raised: 0 0% 12%;
 
     --sidebar-background: 0 0% 4%;
     --sidebar-foreground: 0 0% 53%;
@@ -56,11 +126,13 @@
     --kpi-orange: 38 92% 50%;
     --kpi-red: 0 84% 60%;
 
-    --surface-raised: 0 0% 12%;
-
-    --font-display: 'Syne', system-ui, sans-serif;
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    /* Dark-mode specific matrix colors */
+    --matrix-cat-bg: 0 0% 8%;
+    --matrix-sub-bg: 0 0% 6%;
+    --matrix-detail-bg: 0 0% 4%;
+    --matrix-hover-bg: 0 0% 12%;
+    --matrix-opening-bg: 47 91% 53% / 0.04;
+    --matrix-negative-bg: 0 84% 60% / 0.06;
   }
 }
 
@@ -89,16 +161,16 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(0 0% 16%);
+    background: hsl(var(--border));
     border-radius: 2px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(0 0% 25%);
+    background: hsl(var(--muted-foreground));
   }
 
   /* Focus ring override */
   *:focus-visible {
-    outline: 2px solid hsl(47 91% 53%);
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 }
@@ -118,10 +190,26 @@
   }
 
   .amount-positive {
-    color: hsl(142 71% 45%);
+    color: hsl(var(--success));
   }
 
   .amount-negative {
-    color: hsl(0 84% 60%);
+    color: hsl(var(--destructive));
+  }
+
+  .matrix-cat-bg {
+    background-color: hsl(var(--matrix-cat-bg));
+  }
+  .matrix-sub-bg {
+    background-color: hsl(var(--matrix-sub-bg));
+  }
+  .matrix-detail-bg {
+    background-color: hsl(var(--matrix-detail-bg));
+  }
+  .matrix-opening-bg {
+    background-color: hsl(var(--matrix-opening-bg));
+  }
+  .matrix-negative-bg {
+    background-color: hsl(var(--matrix-negative-bg));
   }
 }

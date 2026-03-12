@@ -1,10 +1,11 @@
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
 import { useBV } from '@/contexts/BVContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar,
@@ -33,16 +34,34 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const location = useLocation();
   const { bvs, selectedBVId, setSelectedBVId, selectedBV } = useBV();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
       <SidebarHeader className="p-4 border-b border-border">
-        <div className="flex items-center gap-2.5">
-          {collapsed ? (
-            <img src={mrboostLogo} alt="Mr. Boost" className="h-8 w-8 object-contain" />
-          ) : (
-            <img src={mrboostLogo} alt="Mr. Boost" className="h-8 object-contain" />
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            {collapsed ? (
+              <img
+                src={mrboostLogo}
+                alt="Mr. Boost"
+                className={`h-8 w-8 object-contain ${theme === 'light' ? 'invert' : ''}`}
+              />
+            ) : (
+              <img
+                src={mrboostLogo}
+                alt="Mr. Boost"
+                className={`h-8 object-contain ${theme === 'light' ? 'invert' : ''}`}
+              />
+            )}
+          </div>
+          <button
+            onClick={toggleTheme}
+            className="p-1.5 rounded-md text-sidebar-foreground hover:text-foreground hover:bg-surface-raised transition-colors"
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
         </div>
 
         {!collapsed && (
