@@ -164,15 +164,21 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
     setSaving(true);
     try {
       if (item?.cashflow_item_id) {
-        await supabase.from('cashflow_items').delete().eq('id', item.cashflow_item_id);
+        const { error } = await supabase.from('cashflow_items').delete().eq('id', item.cashflow_item_id);
+        if (error) throw error;
       } else if (item?.ref_type === 'invoice' && item?.ref_id) {
-        await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
+        const { error } = await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
+        if (error) throw error;
+      } else {
+        toast.error('Kan deze post niet verwijderen (geen ID gevonden)');
+        setSaving(false);
+        return;
       }
       toast.success('Post verwijderd');
       await onRefresh();
       onClose();
     } catch (e: any) {
-      toast.error('Fout bij verwijderen');
+      toast.error('Fout bij verwijderen: ' + (e.message || 'Onbekende fout'));
     } finally {
       setSaving(false);
     }
