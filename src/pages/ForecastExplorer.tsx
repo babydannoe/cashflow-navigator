@@ -439,15 +439,15 @@ export default function ForecastExplorer() {
                             row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
                             row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
                             isClosing && 'bg-card font-bold',
-                            row.type === 'category' && 'matrix-cat-bg font-semibold',
-                            row.type === 'subcategory' && 'matrix-sub-bg',
+                            row.type === 'category' && 'matrix-cat-bg font-semibold cursor-pointer',
+                            row.type === 'subcategory' && 'matrix-sub-bg cursor-pointer',
                             row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
                             isNeg && 'text-destructive',
                             underDrempel && 'matrix-negative-bg text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           onClick={() => {
-                            if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
+                            if (row.type !== 'summary') handleRowClick(row);
                           }}
                         >
                           {val !== 0 ? fmt(val) : <span className="text-muted-foreground/30">—</span>}
