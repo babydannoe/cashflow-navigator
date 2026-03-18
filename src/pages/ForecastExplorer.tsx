@@ -461,6 +461,15 @@ export default function ForecastExplorer() {
           </div>
         </div>
       )}
+
+      <ForecastDrilldownDrawer
+        item={drilldownItem}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onRefresh={syncData}
+        bvs={bvs}
+        isNew={isNewPost}
+      />
     </div>
   );
 }
