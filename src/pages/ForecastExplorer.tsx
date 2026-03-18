@@ -408,13 +408,13 @@ export default function ForecastExplorer() {
                         row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
                         isClosing && 'bg-card font-bold text-foreground',
-                        row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground',
-                        row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground',
+                        row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground cursor-pointer',
+                        row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground cursor-pointer',
                         row.type === 'detail' && 'matrix-detail-bg text-muted-foreground cursor-pointer',
                       )}
                       style={{ paddingLeft: 16 + row.indent * 20 }}
                       onClick={() => {
-                        if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
+                        if (row.type !== 'summary') handleRowClick(row);
                       }}
                     >
                       {row.expandable && (
