@@ -184,7 +184,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
     try {
       await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
       toast.success('Factuur gemarkeerd als betaald');
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch {
       toast.error('Fout bij markeren');
