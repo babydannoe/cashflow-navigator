@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { CalendarIcon, Trash2, Save, X, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Trash2, Save, X, CheckCircle, ArrowRight } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -263,17 +263,28 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           {/* Vervaldatum */}
           <div className="space-y-1.5">
             <Label className="text-xs">Vervaldatum</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className={cn('w-full h-9 justify-start text-left font-normal text-sm', !vervaldatum && 'text-muted-foreground')}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {vervaldatum ? format(vervaldatum, 'd MMM yyyy', { locale: nl }) : 'Kies een datum'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={vervaldatum} onSelect={setVervaldatum} className="p-3 pointer-events-auto" />
-              </PopoverContent>
-            </Popover>
+            <div className="flex gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn('flex-1 h-9 justify-start text-left font-normal text-sm', !vervaldatum && 'text-muted-foreground')}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {vervaldatum ? format(vervaldatum, 'd MMM yyyy', { locale: nl }) : 'Kies een datum'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={vervaldatum} onSelect={setVervaldatum} className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-3 whitespace-nowrap text-xs"
+                onClick={() => setVervaldatum(prev => prev ? addDays(prev, 7) : addDays(new Date(), 7))}
+              >
+                <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                1 week
+              </Button>
+            </div>
           </div>
 
           {/* Categorie */}

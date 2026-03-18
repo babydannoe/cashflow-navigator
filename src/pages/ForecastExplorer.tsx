@@ -215,8 +215,32 @@ export default function ForecastExplorer() {
     });
   };
 
-  const handleDetailClick = (item: CashflowItem) => {
-    setDrilldownItem(item as DrilldownItem);
+  const handleRowClick = (row: MatrixRow) => {
+    if (row.type === 'detail' && row.detailItem) {
+      setDrilldownItem(row.detailItem as DrilldownItem);
+    } else if (row.type === 'category' || row.type === 'subcategory') {
+      // Build an aggregated item for category/subcategory rows
+      const totalBedrag = Object.values(row.weekValues).reduce((s, v) => s + v, 0);
+      const firstBv = bvs[0];
+      const selectedBv = selectedBVId ? bvs.find(b => b.id === selectedBVId) : firstBv;
+      const aggregated: CashflowItem = {
+        omschrijving: row.label,
+        bedrag: totalBedrag,
+        categorie: row.type === 'category' ? row.label : (row.parentId?.split('::')[1] || row.label),
+        subcategorie: row.type === 'subcategory' ? row.label : '',
+        tegenpartij: row.type === 'subcategory' ? row.label : '',
+        bv_id: selectedBv?.id || firstBv?.id || '',
+        bv_naam: selectedBv?.naam || firstBv?.naam || '',
+        bv_kleur: selectedBv?.kleur || firstBv?.kleur || '#888',
+        week: '',
+        type: row.id.startsWith('in::') ? 'in' : 'out',
+        bron: '',
+        cashflow_item_id: undefined,
+      };
+      setDrilldownItem(aggregated as DrilldownItem);
+    } else {
+      return; // Don't open drawer for summary rows
+    }
     setIsNewPost(false);
     setDrawerOpen(true);
   };
@@ -384,13 +408,13 @@ export default function ForecastExplorer() {
                         row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
                         isClosing && 'bg-card font-bold text-foreground',
-                        row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground',
-                        row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground',
+                        row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground cursor-pointer',
+                        row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground cursor-pointer',
                         row.type === 'detail' && 'matrix-detail-bg text-muted-foreground cursor-pointer',
                       )}
                       style={{ paddingLeft: 16 + row.indent * 20 }}
                       onClick={() => {
-                        if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
+                        if (row.type !== 'summary') handleRowClick(row);
                       }}
                     >
                       {row.expandable && (
@@ -415,15 +439,15 @@ export default function ForecastExplorer() {
                             row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
                             row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
                             isClosing && 'bg-card font-bold',
-                            row.type === 'category' && 'matrix-cat-bg font-semibold',
-                            row.type === 'subcategory' && 'matrix-sub-bg',
+                            row.type === 'category' && 'matrix-cat-bg font-semibold cursor-pointer',
+                            row.type === 'subcategory' && 'matrix-sub-bg cursor-pointer',
                             row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
                             isNeg && 'text-destructive',
                             underDrempel && 'matrix-negative-bg text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
                           onClick={() => {
-                            if (row.type === 'detail' && row.detailItem) handleDetailClick(row.detailItem);
+                            if (row.type !== 'summary') handleRowClick(row);
                           }}
                         >
                           {val !== 0 ? fmt(val) : <span className="text-muted-foreground/30">—</span>}
