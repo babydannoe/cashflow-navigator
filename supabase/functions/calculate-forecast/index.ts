@@ -24,11 +24,11 @@ Deno.serve(async (req) => {
     if (bv_id) {
       bvIds = [bv_id];
     } else {
-      const { data: bvs } = await supabase
+      const { data: bvList } = await supabase
         .from("bv")
         .select("id")
         .eq("actief", true);
-      bvIds = (bvs || []).map((b: any) => b.id);
+      bvIds = (bvList || []).map((b: any) => b.id);
     }
 
     // Fetch all needed data
@@ -37,6 +37,7 @@ Deno.serve(async (req) => {
       { data: invoices },
       { data: pipeline },
       { data: recurring },
+      { data: existingCashflowItems },
       { data: counterparties },
       { data: bvs },
     ] = await Promise.all([
@@ -44,6 +45,7 @@ Deno.serve(async (req) => {
       supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open"),
       supabase.from("mt_pipeline_items").select("*").in("bv_id", bvIds),
       supabase.from("recurring_rules").select("*").in("bv_id", bvIds).eq("actief", true),
+      supabase.from("cashflow_items").select("*").in("bv_id", bvIds),
       supabase.from("counterparties").select("*"),
       supabase.from("bv").select("*").in("id", bvIds),
     ]);
@@ -53,11 +55,14 @@ Deno.serve(async (req) => {
     );
     const bvMap = new Map((bvs || []).map((b: any) => [b.id, b]));
 
-    // Calculate opening balance
-    const openingBalance = (accounts || []).reduce(
-      (sum: number, a: any) => sum + Number(a.huidig_saldo || 0),
-      0
-    );
+    // Calculate opening balance per BV or total
+    const balancePerBV: Record<string, number> = {};
+    for (const a of accounts || []) {
+      balancePerBV[a.bv_id] = (balancePerBV[a.bv_id] || 0) + Number(a.huidig_saldo || 0);
+    }
+    const openingBalance = bv_id
+      ? (balancePerBV[bv_id] || 0)
+      : Object.values(balancePerBV).reduce((s, v) => s + v, 0);
 
     // Generate week buckets
     const now = new Date();
@@ -74,34 +79,55 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build cashflow items
+    // Build cashflow items from all sources
     const cashflowItems: any[] = [];
 
-    // Process invoices
+    // 1. Existing cashflow_items from DB (excel imports, manual entries, etc.)
+    for (const ci of existingCashflowItems || []) {
+      const bv = bvMap.get(ci.bv_id);
+      const weekDate = findWeekBucket(ci.week, weekBuckets);
+      if (!weekDate) continue;
+
+      cashflowItems.push({
+        bv_id: ci.bv_id,
+        bv_naam: bv?.naam || "",
+        bv_kleur: bv?.kleur || "#888",
+        week: weekDate,
+        type: ci.type || "out",
+        bedrag: Number(ci.bedrag || 0),
+        omschrijving: ci.omschrijving || "",
+        categorie: ci.categorie || "Overig",
+        subcategorie: ci.subcategorie || ci.tegenpartij || ci.omschrijving || "",
+        tegenpartij: ci.tegenpartij || ci.omschrijving || "",
+        bron: ci.bron || "handmatig",
+        ref_id: ci.ref_id || ci.id,
+        ref_type: ci.ref_type || "cashflow_item",
+        cashflow_item_id: ci.id,
+      });
+    }
+
+    // 2. Process invoices (only if not already in cashflow_items to avoid duplicates)
+    const existingRefIds = new Set(
+      (existingCashflowItems || [])
+        .filter((ci: any) => ci.ref_type === "invoice" && ci.ref_id)
+        .map((ci: any) => ci.ref_id)
+    );
+
     for (const inv of invoices || []) {
+      if (existingRefIds.has(inv.id)) continue;
+
       const cp = inv.counterparty_id ? counterpartyMap.get(inv.counterparty_id) : null;
       const bv = bvMap.get(inv.bv_id);
       const weekDate = findWeekBucket(inv.vervaldatum, weekBuckets);
       if (!weekDate) continue;
 
       let categorie = "";
-      let subcategorie = cp?.naam || "Onbekend";
+      const subcategorie = cp?.naam || "Onbekend";
 
       if (inv.type === "AR") {
         categorie = "Omzet";
       } else {
-        if (cp?.type === "leverancier") {
-          const naam = (cp?.naam || "").toLowerCase();
-          if (naam.includes("huur") || naam.includes("kantoor")) {
-            categorie = "Huurkosten";
-          } else if (naam.includes("inkoop") || naam.includes("voorraad")) {
-            categorie = "Inkoop";
-          } else {
-            categorie = "Diensten";
-          }
-        } else {
-          categorie = "Diensten";
-        }
+        categorie = "Diensten";
       }
 
       cashflowItems.push({
@@ -124,8 +150,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Process MT pipeline
+    // 3. Process MT pipeline (skip if already in cashflow_items)
+    const existingPipelineIds = new Set(
+      (existingCashflowItems || [])
+        .filter((ci: any) => ci.ref_type === "mt_pipeline" && ci.ref_id)
+        .map((ci: any) => ci.ref_id)
+    );
+
     for (const mt of pipeline || []) {
+      if (existingPipelineIds.has(mt.id)) continue;
+
       const bv = bvMap.get(mt.bv_id);
       const weekDate = findWeekBucket(mt.verwachte_week, weekBuckets);
       if (!weekDate) continue;
@@ -153,8 +187,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Process recurring rules
+    // 4. Process recurring rules (skip if already in cashflow_items)
+    const existingRecurringIds = new Set(
+      (existingCashflowItems || [])
+        .filter((ci: any) => ci.ref_type === "recurring_rule" && ci.ref_id)
+        .map((ci: any) => ci.ref_id)
+    );
+
     for (const rule of recurring || []) {
+      if (existingRecurringIds.has(rule.id)) continue;
+
       const bv = bvMap.get(rule.bv_id);
 
       for (const bucket of weekBuckets) {
@@ -165,7 +207,6 @@ Deno.serve(async (req) => {
         if (ruleStart && bucketDate < ruleStart) continue;
         if (ruleEnd && bucketDate > ruleEnd) continue;
 
-        // For monthly recurring, check if this week contains the expected pay day
         if (rule.frequentie === "maandelijks") {
           const weekEndDate = new Date(bucketDate);
           weekEndDate.setDate(weekEndDate.getDate() + 6);
@@ -221,23 +262,16 @@ Deno.serve(async (req) => {
       runningBalance = closing;
     }
 
-    // Store forecasts in DB
-    for (const bvId of bvIds) {
-      await supabase
-        .from("forecasts")
-        .delete()
-        .eq("bv_id", bvId);
-    }
-
     // Get drempel values
     const drempels: Record<string, number> = {};
     for (const bv of bvs || []) {
       drempels[bv.id] = Number(bv.drempel_bedrag || 0);
     }
-    const totalDrempel = bv_id 
-      ? drempels[bv_id] || 0 
+    const totalDrempel = bv_id
+      ? drempels[bv_id] || 0
       : Object.values(drempels).reduce((s, d) => s + d, 0);
 
+    // Add excel_import as a recognized source
     const result = {
       weekBuckets,
       forecasts,
