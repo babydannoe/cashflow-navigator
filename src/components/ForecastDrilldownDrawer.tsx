@@ -151,7 +151,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         toast.success('Post opgeslagen');
       }
 
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (e: any) {
       toast.error('Fout bij opslaan: ' + (e.message || 'Onbekende fout'));
