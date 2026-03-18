@@ -93,7 +93,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
     }
     setSaving(true);
     try {
-      const weekDate = vervaldatum ? getISOWeekStart(vervaldatum).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const weekDate = vervaldatum ? format(getISOWeekStart(vervaldatum), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 
       if (isNew) {
         // Insert new cashflow_item
