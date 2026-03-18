@@ -43,7 +43,7 @@ interface Props {
   item: DrilldownItem | null;
   open: boolean;
   onClose: () => void;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
   bvs: BV[];
   isNew?: boolean;
 }
