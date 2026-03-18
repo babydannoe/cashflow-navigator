@@ -43,7 +43,7 @@ interface Props {
   item: DrilldownItem | null;
   open: boolean;
   onClose: () => void;
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
   bvs: BV[];
   isNew?: boolean;
 }
@@ -151,7 +151,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         toast.success('Post opgeslagen');
       }
 
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (e: any) {
       toast.error('Fout bij opslaan: ' + (e.message || 'Onbekende fout'));
@@ -169,7 +169,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
       }
       toast.success('Post verwijderd');
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (e: any) {
       toast.error('Fout bij verwijderen');
@@ -184,7 +184,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
     try {
       await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
       toast.success('Factuur gemarkeerd als betaald');
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch {
       toast.error('Fout bij markeren');
