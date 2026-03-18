@@ -169,7 +169,7 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         await supabase.from('invoices').update({ status: 'betaald' }).eq('id', item.ref_id);
       }
       toast.success('Post verwijderd');
-      onRefresh();
+      await onRefresh();
       onClose();
     } catch (e: any) {
       toast.error('Fout bij verwijderen');
