@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { CalendarIcon, Trash2, Save, X, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Trash2, Save, X, CheckCircle, ArrowRight } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
