@@ -155,9 +155,13 @@ export default function FinanceMeeting() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Tab 1 helpers ──
+   // ── Tab 1 helpers ──
   const outItems = cashflowItems.filter(i => i.type === 'out');
   const inItems = cashflowItems.filter(i => i.type === 'in');
+  const outDecision = outItems.filter(i => i.bron !== 'recurring');
+  const outRecurring = outItems.filter(i => i.bron === 'recurring');
+  const totalDecision = outDecision.reduce((s, i) => s + i.bedrag, 0);
+  const totalRecurring = outRecurring.reduce((s, i) => s + i.bedrag, 0);
   const totalOut = outItems.reduce((s, i) => s + i.bedrag, 0);
   const totalIn = inItems.reduce((s, i) => s + i.bedrag, 0);
   const expectedClosing = openingBalance + totalIn - totalOut;
