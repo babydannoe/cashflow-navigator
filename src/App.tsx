@@ -16,6 +16,7 @@ import Facturen from "./pages/Facturen";
 import Betalingsronden from "./pages/Betalingsronden";
 import BTWBelasting from "./pages/BTWBelasting";
 import LeningenDividend from "./pages/LeningenDividend";
+import FinanceMeeting from "./pages/FinanceMeeting";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
