@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
@@ -262,29 +263,52 @@ export default function ForecastExplorer() {
 
   const COL_WIDTH = 120;
 
-  const exportCSV = useCallback(() => {
-    if (!visibleRows.length || !weekBuckets.length) return;
-    const sep = ';';
-    const header = ['Omschrijving', ...weekBuckets.map(w => w.label)].join(sep);
-    const lines = visibleRows.map(row => {
-      const label = `${'  '.repeat(row.indent)}${row.label}`.replace(/;/g, ',');
+  const exportXLSX = useCallback(() => {
+    if (!allRows.length || !weekBuckets.length) return;
+
+    const bvLabel = localBVId
+      ? (bvs.find(b => b.id === localBVId)?.naam ?? 'Onbekend')
+      : 'Geconsolideerd';
+
+    const headers = ['Omschrijving', ...weekBuckets.map(w => w.label)];
+
+    const dataRows = allRows.map(row => {
+      const indent = '  '.repeat(row.indent);
+      const label = indent + row.label;
       const vals = weekBuckets.map(w => {
         const v = row.weekValues[w.weekDate];
-        return v != null ? v.toFixed(2).replace('.', ',') : '';
+        return v != null && v !== 0 ? v : '';
       });
-      return [label, ...vals].join(sep);
+      return [label, ...vals];
     });
-    const bom = '\uFEFF';
-    const csv = bom + [header, ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `forecast-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('CSV geëxporteerd');
-  }, [visibleRows, weekBuckets]);
+
+    const wsData = [headers, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    ws['!cols'] = [
+      { wch: 45 },
+      ...weekBuckets.map(() => ({ wch: 14 }))
+    ];
+
+    allRows.forEach((row, i) => {
+      const rowIndex = i + 1;
+      const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 0 });
+      if (!ws[cellRef]) return;
+      if (!ws[cellRef].s) ws[cellRef].s = {};
+      if (row.type === 'summary' || row.type === 'category') {
+        ws[cellRef].s.font = { bold: true };
+      }
+    });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, bvLabel.slice(0, 31));
+
+    const datum = new Date().toISOString().slice(0, 10);
+    const bestandsnaam = `forecast-${bvLabel.replace(/[^a-zA-Z0-9]/g, '-')}-${datum}.xlsx`;
+
+    XLSX.writeFile(wb, bestandsnaam);
+    toast.success(`XLSX geëxporteerd: ${bestandsnaam}`);
+  }, [allRows, weekBuckets, localBVId, bvs]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)]">
@@ -294,9 +318,9 @@ export default function ForecastExplorer() {
           <p className="text-muted-foreground text-sm mt-1">Cashflow forecast per week</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={exportCSV} size="sm" variant="outline" disabled={!loaded}>
+          <Button onClick={exportXLSX} size="sm" variant="outline" disabled={!loaded}>
             <Download className="h-4 w-4 mr-1" />
-            Exporteer CSV
+            Exporteer XLSX
           </Button>
           <Button onClick={handleNewPost} size="sm" variant="outline">
             <Plus className="h-4 w-4 mr-1" />
