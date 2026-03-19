@@ -187,50 +187,63 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Process recurring rules (skip if already in cashflow_items)
-    const existingRecurringIds = new Set(
-      (existingCashflowItems || [])
-        .filter((ci: any) => ci.ref_type === "recurring_rule" && ci.ref_id)
-        .map((ci: any) => ci.ref_id)
-    );
+    // 4. Process recurring rules — always generate dynamically for full horizon
+    const firstBucketDate = new Date(weekBuckets[0].weekDate);
+    const lastBucketDate = new Date(weekBuckets[weekBuckets.length - 1].weekDate);
+    lastBucketDate.setDate(lastBucketDate.getDate() + 6); // end of last week
 
     for (const rule of recurring || []) {
-      if (existingRecurringIds.has(rule.id)) continue;
-
       const bv = bvMap.get(rule.bv_id);
+      const ruleStart = rule.startdatum ? new Date(rule.startdatum) : null;
+      const ruleEnd = rule.einddatum ? new Date(rule.einddatum) : null;
 
-      for (const bucket of weekBuckets) {
-        const bucketDate = new Date(bucket.weekDate);
-        const ruleStart = rule.startdatum ? new Date(rule.startdatum) : null;
-        const ruleEnd = rule.einddatum ? new Date(rule.einddatum) : null;
+      const makeItem = (weekDate: string) => ({
+        bv_id: rule.bv_id,
+        bv_naam: bv?.naam || "",
+        bv_kleur: bv?.kleur || "#888",
+        week: weekDate,
+        type: "out",
+        bedrag: Number(rule.bedrag || 0),
+        omschrijving: rule.omschrijving || "",
+        categorie: rule.categorie || "Overig",
+        subcategorie: rule.omschrijving || "",
+        tegenpartij: rule.omschrijving || "",
+        bron: "recurring",
+        ref_id: rule.id,
+        ref_type: "recurring_rule",
+        frequentie: rule.frequentie,
+      });
 
-        if (ruleStart && bucketDate < ruleStart) continue;
-        if (ruleEnd && bucketDate > ruleEnd) continue;
-
-        if (rule.frequentie === "maandelijks") {
-          const weekEndDate = new Date(bucketDate);
-          weekEndDate.setDate(weekEndDate.getDate() + 6);
-          const payDay = rule.verwachte_betaaldag || 1;
-          const monthDate = new Date(bucketDate.getFullYear(), bucketDate.getMonth(), payDay);
-          if (monthDate < bucketDate || monthDate > weekEndDate) continue;
+      if (rule.frequentie === "wekelijks") {
+        for (const bucket of weekBuckets) {
+          const bucketDate = new Date(bucket.weekDate);
+          if (ruleStart && bucketDate < ruleStart) continue;
+          if (ruleEnd && bucketDate > ruleEnd) continue;
+          cashflowItems.push(makeItem(bucket.weekDate));
         }
+      } else if (rule.frequentie === "maandelijks") {
+        // Loop through each calendar month in the horizon
+        const startMonth = new Date(firstBucketDate.getFullYear(), firstBucketDate.getMonth(), 1);
+        const endMonth = new Date(lastBucketDate.getFullYear(), lastBucketDate.getMonth() + 1, 0);
 
-        cashflowItems.push({
-          bv_id: rule.bv_id,
-          bv_naam: bv?.naam || "",
-          bv_kleur: bv?.kleur || "#888",
-          week: bucket.weekDate,
-          type: "out",
-          bedrag: Number(rule.bedrag || 0),
-          omschrijving: rule.omschrijving || "",
-          categorie: rule.categorie || "Overig",
-          subcategorie: rule.omschrijving || "",
-          tegenpartij: rule.omschrijving || "",
-          bron: "recurring",
-          ref_id: rule.id,
-          ref_type: "recurring_rule",
-          frequentie: rule.frequentie,
-        });
+        const cursor = new Date(startMonth);
+        while (cursor <= endMonth) {
+          const year = cursor.getFullYear();
+          const month = cursor.getMonth();
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const payDay = Math.min(rule.verwachte_betaaldag || 1, daysInMonth);
+          const payDate = new Date(year, month, payDay);
+
+          if (ruleStart && payDate < ruleStart) { cursor.setMonth(cursor.getMonth() + 1); continue; }
+          if (ruleEnd && payDate > ruleEnd) break;
+
+          const weekDate = findWeekBucket(payDate.toISOString().split("T")[0], weekBuckets);
+          if (weekDate) {
+            cashflowItems.push(makeItem(weekDate));
+          }
+
+          cursor.setMonth(cursor.getMonth() + 1);
+        }
       }
     }
 
