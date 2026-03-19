@@ -497,7 +497,7 @@ export default function FinanceMeeting() {
                 <CardTitle className="text-base text-destructive">Te betalen</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                {renderCashflowTable(outItems, 'out')}
+                {renderOutTable()}
               </CardContent>
             </Card>
             <Card>
