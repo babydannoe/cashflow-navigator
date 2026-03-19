@@ -16,6 +16,7 @@ import Facturen from "./pages/Facturen";
 import Betalingsronden from "./pages/Betalingsronden";
 import BTWBelasting from "./pages/BTWBelasting";
 import LeningenDividend from "./pages/LeningenDividend";
+import FinanceMeeting from "./pages/FinanceMeeting";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import NotFound from "./pages/NotFound";
 
@@ -32,6 +33,7 @@ const App = () => (
             <AppLayout>
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/finance-meeting" element={<FinanceMeeting />} />
                 <Route path="/forecast" element={<ForecastExplorer />} />
                 <Route path="/bv-overzicht" element={<BVOverzicht />} />
                 <Route path="/mt-pipeline" element={<MTPipeline />} />

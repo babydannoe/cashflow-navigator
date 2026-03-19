@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
@@ -17,6 +17,7 @@ import mrboostLogo from '@/assets/mrboost-logo.svg';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Finance Meeting', url: '/finance-meeting', icon: CalendarCheck },
   { title: 'Forecast Explorer', url: '/forecast', icon: TrendingUp },
   { title: 'BV Overzicht', url: '/bv-overzicht', icon: Building2 },
   { title: 'MT Pipeline', url: '/mt-pipeline', icon: Target },
