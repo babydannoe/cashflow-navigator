@@ -17,6 +17,7 @@ import mrboostLogo from '@/assets/mrboost-logo.svg';
 
 const navItems = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+  { title: 'Finance Meeting', url: '/finance-meeting', icon: CalendarCheck },
   { title: 'Forecast Explorer', url: '/forecast', icon: TrendingUp },
   { title: 'BV Overzicht', url: '/bv-overzicht', icon: Building2 },
   { title: 'MT Pipeline', url: '/mt-pipeline', icon: Target },
