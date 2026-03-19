@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
         type: "out",
         bedrag: Number(rule.bedrag || 0),
         omschrijving: rule.omschrijving || "",
-        categorie: rule.categorie || "Overig",
+        categorie: "Recurring kosten",
         subcategorie: rule.omschrijving || "",
         tegenpartij: rule.omschrijving || "",
         bron: "recurring",
