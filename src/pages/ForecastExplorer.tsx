@@ -318,9 +318,9 @@ export default function ForecastExplorer() {
           <p className="text-muted-foreground text-sm mt-1">Cashflow forecast per week</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={exportCSV} size="sm" variant="outline" disabled={!loaded}>
+          <Button onClick={exportXLSX} size="sm" variant="outline" disabled={!loaded}>
             <Download className="h-4 w-4 mr-1" />
-            Exporteer CSV
+            Exporteer XLSX
           </Button>
           <Button onClick={handleNewPost} size="sm" variant="outline">
             <Plus className="h-4 w-4 mr-1" />
