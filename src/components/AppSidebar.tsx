@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
