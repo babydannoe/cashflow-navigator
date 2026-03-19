@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
