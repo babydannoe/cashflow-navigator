@@ -351,6 +351,105 @@ export default function FinanceMeeting() {
     );
   };
 
+  const renderOutTable = () => {
+    const colorClass = 'text-destructive';
+    return (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Omschrijving</TableHead>
+            <TableHead>Categorie</TableHead>
+            <TableHead>BV</TableHead>
+            <TableHead className="text-right">Bedrag</TableHead>
+            <TableHead className="w-[100px]">Acties</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {/* Sectie 1: Te beslissen */}
+          {outDecision.length === 0 && outRecurring.length === 0 && (
+            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
+          )}
+          {outDecision.map((item, idx) => (
+            <TableRow key={`dec-${item.ref_id}-${idx}`}>
+              <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
+              <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{item.bv_naam}</span>
+                </div>
+              </TableCell>
+              <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
+              <TableCell>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+
+          {/* Scheidingslijn */}
+          {outRecurring.length > 0 && (
+            <TableRow className="border-0 hover:bg-transparent">
+              <TableCell colSpan={5} className="py-2 px-4">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex-1 border-t border-border" />
+                  <Lock className="h-3 w-3" />
+                  <span>Automatisch afgeschreven — geen actie nodig</span>
+                  <div className="flex-1 border-t border-border" />
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
+
+          {/* Sectie 2: Vaste lasten */}
+          {outRecurring.map((item, idx) => (
+            <TableRow key={`rec-${item.ref_id}-${idx}`} className="bg-muted/30 hover:bg-muted/40">
+              <TableCell className="text-sm max-w-[200px] truncate">
+                <div className="flex items-center gap-1.5">
+                  <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
+                  {item.omschrijving}
+                </div>
+              </TableCell>
+              <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
+                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{item.bv_naam}</span>
+                </div>
+              </TableCell>
+              <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
+              <TableCell />
+            </TableRow>
+          ))}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={3} className="text-sm text-muted-foreground">Te beslissen</TableCell>
+            <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totalDecision)}</TableCell>
+            <TableCell />
+          </TableRow>
+          {outRecurring.length > 0 && (
+            <TableRow>
+              <TableCell colSpan={3} className="text-sm text-muted-foreground">Vaste lasten</TableCell>
+              <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totalRecurring)}</TableCell>
+              <TableCell />
+            </TableRow>
+          )}
+          <TableRow>
+            <TableCell colSpan={3} className="font-semibold">Totaal uit</TableCell>
+            <TableCell className={cn('text-right font-mono font-semibold', colorClass)}>− {fmt(totalOut)}</TableCell>
+            <TableCell />
+          </TableRow>
+        </TableFooter>
+      </Table>
+    );
+  };
   return (
     <div className="space-y-6">
       {/* Header */}
