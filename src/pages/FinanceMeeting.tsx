@@ -758,11 +758,16 @@ export default function FinanceMeeting() {
   );
 }
 
-function BankstandRegel({ account, onSave }: { account: any; onSave: () => void }) {
+function BankstandRegel({ account, bvNaam, onSave }: { account: any; bvNaam: string; onSave: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(account.huidig_saldo ?? 0));
   const [saving, setSaving] = useState(false);
-  const bvNaam = account.naam || account.iban;
+
+  useEffect(() => {
+    if (!editing) {
+      setValue(String(account.huidig_saldo ?? 0));
+    }
+  }, [account.huidig_saldo, editing]);
 
   const handleSave = async () => {
     setSaving(true);
