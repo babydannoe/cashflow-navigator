@@ -525,9 +525,17 @@ export default function FinanceMeeting() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {bankAccounts.map(account => (
-                  <BankstandRegel key={account.id} account={account} onSave={loadData} />
-                ))}
+                {bankAccounts.map(account => {
+                  const bv = bvs.find(b => b.id === account.bv_id);
+                  return (
+                    <BankstandRegel
+                      key={account.id}
+                      account={account}
+                      bvNaam={bv?.naam ?? 'Onbekende BV'}
+                      onSave={loadData}
+                    />
+                  );
+                })}
                 {bankAccounts.length === 0 && (
                   <p className="text-sm text-muted-foreground">Geen bankrekeningen gevonden.</p>
                 )}
