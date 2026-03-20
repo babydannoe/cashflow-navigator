@@ -204,10 +204,12 @@ export type Database = {
           bron: string | null
           bv_id: string
           categorie: string | null
+          goedgekeurd_op: string | null
           id: string
           omschrijving: string | null
           ref_id: string | null
           ref_type: string | null
+          status: string | null
           subcategorie: string | null
           tegenpartij: string | null
           type: string | null
@@ -218,10 +220,12 @@ export type Database = {
           bron?: string | null
           bv_id: string
           categorie?: string | null
+          goedgekeurd_op?: string | null
           id?: string
           omschrijving?: string | null
           ref_id?: string | null
           ref_type?: string | null
+          status?: string | null
           subcategorie?: string | null
           tegenpartij?: string | null
           type?: string | null
@@ -232,10 +236,12 @@ export type Database = {
           bron?: string | null
           bv_id?: string
           categorie?: string | null
+          goedgekeurd_op?: string | null
           id?: string
           omschrijving?: string | null
           ref_id?: string | null
           ref_type?: string | null
+          status?: string | null
           subcategorie?: string | null
           tegenpartij?: string | null
           type?: string | null
