@@ -136,6 +136,13 @@ export default function FinanceMeeting() {
       setCashflowItems(items);
       setOpeningBalance(data.openingBalance ?? 0);
 
+      // Bank accounts
+      const { data: accounts } = await supabase
+        .from('bank_accounts')
+        .select('id, bv_id, iban, naam, huidig_saldo')
+        .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
+      setBankAccounts(accounts || []);
+
       // Pipeline
       let q = supabase.from('mt_pipeline_items').select('*');
       if (localBVId) q = q.eq('bv_id', localBVId);
