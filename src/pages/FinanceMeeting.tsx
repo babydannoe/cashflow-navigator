@@ -100,6 +100,7 @@ export default function FinanceMeeting() {
   // Tab 1 state
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -134,6 +135,13 @@ export default function FinanceMeeting() {
       );
       setCashflowItems(items);
       setOpeningBalance(data.openingBalance ?? 0);
+
+      // Bank accounts
+      const { data: accounts } = await supabase
+        .from('bank_accounts')
+        .select('id, bv_id, iban, naam, huidig_saldo')
+        .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
+      setBankAccounts(accounts || []);
 
       // Pipeline
       let q = supabase.from('mt_pipeline_items').select('*');
@@ -510,6 +518,23 @@ export default function FinanceMeeting() {
             </Card>
           </div>
 
+          {/* Bankstanden */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Bankstanden bijwerken</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {bankAccounts.map(account => (
+                  <BankstandRegel key={account.id} account={account} onSave={loadData} />
+                ))}
+                {bankAccounts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Geen bankrekeningen gevonden.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Summary bar */}
           <Card>
             <CardContent className="py-3 px-4">
@@ -721,6 +746,62 @@ export default function FinanceMeeting() {
           )}
         </SheetContent>
       </Sheet>
+    </div>
+  );
+}
+
+function BankstandRegel({ account, onSave }: { account: any; onSave: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(account.huidig_saldo ?? 0));
+  const [saving, setSaving] = useState(false);
+  const bvNaam = account.naam || account.iban;
+
+  const handleSave = async () => {
+    setSaving(true);
+    const nieuwSaldo = parseFloat(value.replace(',', '.'));
+    if (isNaN(nieuwSaldo)) { toast.error('Ongeldig bedrag'); setSaving(false); return; }
+    const { error } = await supabase
+      .from('bank_accounts')
+      .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
+      .eq('id', account.id);
+    if (error) { toast.error('Fout: ' + error.message); }
+    else { toast.success(`Saldo bijgewerkt: ${bvNaam}`); setEditing(false); onSave(); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{bvNaam}</p>
+        <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
+      </div>
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            className="h-8 w-36 font-mono text-sm"
+            step="0.01"
+            autoFocus
+          />
+          <Button size="sm" className="h-8" onClick={handleSave} disabled={saving}>
+            <Save className="h-3.5 w-3.5 mr-1" /> Opslaan
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => { setEditing(false); setValue(String(account.huidig_saldo ?? 0)); }}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-medium">
+            {fmt(account.huidig_saldo ?? 0)}
+          </span>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setValue(String(account.huidig_saldo ?? 0)); setEditing(true); }}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
