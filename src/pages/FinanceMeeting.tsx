@@ -525,9 +525,17 @@ export default function FinanceMeeting() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {bankAccounts.map(account => (
-                  <BankstandRegel key={account.id} account={account} onSave={loadData} />
-                ))}
+                {bankAccounts.map(account => {
+                  const bv = bvs.find(b => b.id === account.bv_id);
+                  return (
+                    <BankstandRegel
+                      key={account.id}
+                      account={account}
+                      bvNaam={bv?.naam ?? 'Onbekende BV'}
+                      onSave={loadData}
+                    />
+                  );
+                })}
                 {bankAccounts.length === 0 && (
                   <p className="text-sm text-muted-foreground">Geen bankrekeningen gevonden.</p>
                 )}
@@ -750,11 +758,16 @@ export default function FinanceMeeting() {
   );
 }
 
-function BankstandRegel({ account, onSave }: { account: any; onSave: () => void }) {
+function BankstandRegel({ account, bvNaam, onSave }: { account: any; bvNaam: string; onSave: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(String(account.huidig_saldo ?? 0));
   const [saving, setSaving] = useState(false);
-  const bvNaam = account.naam || account.iban;
+
+  useEffect(() => {
+    if (!editing) {
+      setValue(String(account.huidig_saldo ?? 0));
+    }
+  }, [account.huidig_saldo, editing]);
 
   const handleSave = async () => {
     setSaving(true);
