@@ -165,6 +165,35 @@ export default function FinanceMeeting() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ── Bankstand helpers ──
+  const startEditSaldo = (accountId: string, huidigSaldo: number) => {
+    setSaldoValues(prev => ({ ...prev, [accountId]: String(huidigSaldo) }));
+    setEditingSaldoId(accountId);
+  };
+
+  const saveSaldo = async (account: any) => {
+    const raw = saldoValues[account.id] ?? '';
+    const cleaned = raw.replace(/\./g, '').replace(',', '.');
+    const nieuwSaldo = parseFloat(cleaned);
+    if (isNaN(nieuwSaldo)) {
+      toast.error('Ongeldig bedrag');
+      return;
+    }
+    const { error } = await supabase
+      .from('bank_accounts')
+      .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
+      .eq('id', account.id);
+    if (error) {
+      toast.error('Fout: ' + error.message);
+      return;
+    }
+    toast.success('Saldo bijgewerkt');
+    setEditingSaldoId(null);
+    setBankAccounts(prev => prev.map(a =>
+      a.id === account.id ? { ...a, huidig_saldo: nieuwSaldo } : a
+    ));
+  };
+
    // ── Tab 1 helpers ──
   const outItems = cashflowItems.filter(i => i.type === 'out');
   const inItems = cashflowItems.filter(i => i.type === 'in');
