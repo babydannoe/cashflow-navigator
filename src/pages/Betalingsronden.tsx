@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Download, Check, Plus, CreditCard } from 'lucide-react';
+import { Download, Check, Plus, CreditCard, ArrowRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
 import { toast } from 'sonner';
@@ -43,6 +43,18 @@ interface PaymentRunItem {
 interface Counterparty { id: string; naam: string; iban?: string | null; }
 interface BankAccount { id: string; bv_id: string; iban: string | null; naam: string | null; }
 
+interface GoedgekeurdItem {
+  id: string;
+  bv_id: string;
+  omschrijving: string;
+  bedrag: number;
+  categorie: string;
+  week: string;
+  bron: string;
+  factuurnummer?: string;
+  goedgekeurd_op?: string;
+}
+
 export default function Betalingsronden() {
   const { bvs } = useBV();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -52,24 +64,28 @@ export default function Betalingsronden() {
   const [runItems, setRunItems] = useState<PaymentRunItem[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [goedgekeurdItems, setGoedgekeurdItems] = useState<GoedgekeurdItem[]>([]);
+  const [selectedCIIds, setSelectedCIIds] = useState<Set<string>>(new Set());
 
   const cpMap = useMemo(() => new Map(counterparties.map(c => [c.id, c])), [counterparties]);
   const bvMap = useMemo(() => new Map(bvs.map(b => [b.id, b])), [bvs]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [inv, cp, ba, pr, pri] = await Promise.all([
+    const [inv, cp, ba, pr, pri, ci] = await Promise.all([
       supabase.from('invoices').select('*').eq('status', 'goedgekeurd'),
       supabase.from('counterparties').select('*'),
       supabase.from('bank_accounts').select('*'),
       supabase.from('payment_runs').select('*').order('aangemaakt_op', { ascending: false }),
       supabase.from('payment_run_items').select('*'),
+      supabase.from('cashflow_items').select('*').eq('status' as any, 'goedgekeurd').eq('type', 'out'),
     ]);
     if (inv.data) setInvoices(inv.data);
     if (cp.data) setCounterparties(cp.data as Counterparty[]);
     if (ba.data) setBankAccounts(ba.data);
     if (pr.data) setPaymentRuns(pr.data);
     if (pri.data) setRunItems(pri.data);
+    if (ci.data) setGoedgekeurdItems(ci.data as GoedgekeurdItem[]);
     setLoading(false);
   }, []);
 
@@ -192,6 +208,44 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  // ── Goedgekeurde cashflow_items functies ──
+  const markeerBetaald = async (id: string) => {
+    await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items', actie: 'status → betaald',
+      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+    });
+    toast.success('Post gemarkeerd als betaald');
+    fetchData();
+  };
+
+  const markeerBetaaldBulk = async () => {
+    const ids = Array.from(selectedCIIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items', actie: 'status → betaald',
+        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+      });
+    }
+    toast.success(`${ids.length} posten gemarkeerd als betaald`);
+    setSelectedCIIds(new Set());
+    fetchData();
+  };
+
+  const verschuifCIBulk = async () => {
+    const ids = Array.from(selectedCIIds);
+    for (const id of ids) {
+      const item = goedgekeurdItems.find(i => i.id === id);
+      if (!item) continue;
+      const newWeek = format(addDays(new Date(item.week), 7), 'yyyy-MM-dd');
+      await supabase.from('cashflow_items').update({ week: newWeek, status: 'actief' } as any).eq('id', id);
+    }
+    toast.success(`${ids.length} posten verschoven en teruggezet naar actief`);
+    setSelectedCIIds(new Set());
+    fetchData();
+  };
+
   const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
 
   const STATUS_BADGE: Record<string, string> = {
@@ -203,6 +257,93 @@ export default function Betalingsronden() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Betalingsronden</h1>
+
+      {/* Section: Goedgekeurde cashflow items */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Goedgekeurd voor betaling</CardTitle>
+            {selectedCIIds.size > 0 && (
+              <div className="flex gap-2">
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={markeerBetaaldBulk}>
+                  <Check className="h-3.5 w-3.5 mr-1" /> Markeer betaald ({selectedCIIds.size})
+                </Button>
+                <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
+                  <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {goedgekeurdItems.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">
+              Geen goedgekeurde posten — keur posten goed via de Finance Meeting.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">
+                    <Checkbox
+                      checked={selectedCIIds.size === goedgekeurdItems.length && goedgekeurdItems.length > 0}
+                      onCheckedChange={() => {
+                        if (selectedCIIds.size === goedgekeurdItems.length) setSelectedCIIds(new Set());
+                        else setSelectedCIIds(new Set(goedgekeurdItems.map(i => i.id)));
+                      }}
+                    />
+                  </TableHead>
+                  <TableHead>Omschrijving</TableHead>
+                  <TableHead>BV</TableHead>
+                  <TableHead>Week</TableHead>
+                  <TableHead className="text-right">Bedrag</TableHead>
+                  <TableHead>Acties</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {goedgekeurdItems.map(item => {
+                  const bv = bvMap.get(item.bv_id);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedCIIds.has(item.id)}
+                          onCheckedChange={() => {
+                            const next = new Set(selectedCIIds);
+                            next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                            setSelectedCIIds(next);
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        <div>{item.omschrijving}</div>
+                        {item.factuurnummer && (
+                          <div className="text-xs text-muted-foreground font-mono">#{item.factuurnummer}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
+                          <span className="text-sm">{(bv as any)?.naam || '—'}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{item.week}</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(item.bedrag)}</TableCell>
+                      <TableCell>
+                        <Button size="sm" className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => markeerBetaald(item.id)}>
+                          <Check className="h-3.5 w-3.5 mr-1" /> Betaald
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Section A: Compose */}
       <Card>
@@ -234,8 +375,8 @@ export default function Betalingsronden() {
                         <TableCell className="text-sm">{cp?.naam || '—'}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: bv?.kleur || '#888' }} />
-                            <span className="text-sm">{bv?.naam || '—'}</span>
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
+                            <span className="text-sm">{(bv as any)?.naam || '—'}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm">{fmt(inv.bedrag)}</TableCell>

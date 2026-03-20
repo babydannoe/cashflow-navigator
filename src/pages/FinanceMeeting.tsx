@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
-  RefreshCw, ArrowRight, Pencil, Plus, X, CalendarIcon, Save, Lock,
+  RefreshCw, ArrowRight, Pencil, Plus, X, CalendarIcon, Save, Lock, Check,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
@@ -105,6 +106,7 @@ export default function FinanceMeeting() {
   const [saldoValues, setSaldoValues] = useState<Record<string, string>>({});
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Tab 2 state
   const [pipelineItems, setPipelineItems] = useState<PipelineItem[]>([]);
@@ -121,6 +123,38 @@ export default function FinanceMeeting() {
   const weekNr = getISOWeek(weekStart);
   const weekLabel = `Week ${weekNr} · ${format(weekStart, 'd', { locale: nl })}–${format(weekEnd, 'd MMM yyyy', { locale: nl })}`;
   const currentWeekDate = format(weekStart, 'yyyy-MM-dd');
+
+  // ── approval helpers ──
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const goedkeurenBulk = async (ids: string[]) => {
+    const { error } = await supabase
+      .from('cashflow_items')
+      .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
+      .in('id', ids);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} goedgekeurd voor betaling`);
+    setSelectedIds(new Set());
+    loadData();
+  };
+
+  const verschuifBulk = async (ids: string[]) => {
+    for (const id of ids) {
+      const item = cashflowItems.find(i => i.cashflow_item_id === id);
+      if (!item || item.ref_type === 'recurring_rule') continue;
+      const newWeek = format(addDays(new Date(item.week), 7), 'yyyy-MM-dd');
+      await supabase.from('cashflow_items').update({ week: newWeek }).eq('id', id);
+    }
+    toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} verschoven`);
+    setSelectedIds(new Set());
+    loadData();
+  };
 
   // ── data loading ──
   const loadData = useCallback(async () => {
@@ -334,53 +368,97 @@ export default function FinanceMeeting() {
     }
   };
 
+  // ── helper: selectable items (non-recurring with cashflow_item_id) ──
+  const selectableOutItems = outDecision.filter(i => i.cashflow_item_id);
+  const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
+
   // ── render helpers ──
   const renderCashflowTable = (items: CashflowItem[], type: 'in' | 'out') => {
     const colorClass = type === 'in' ? 'text-emerald-400' : 'text-destructive';
     const total = items.reduce((s, i) => s + i.bedrag, 0);
+    const selectableItems = items.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
+    const allSelected = selectableItems.length > 0 && selectableItems.every(i => selectedIds.has(i.cashflow_item_id!));
     return (
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-8">
+              {selectableItems.length > 0 && (
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={() => {
+                    const next = new Set(selectedIds);
+                    if (allSelected) {
+                      selectableItems.forEach(i => next.delete(i.cashflow_item_id!));
+                    } else {
+                      selectableItems.forEach(i => next.add(i.cashflow_item_id!));
+                    }
+                    setSelectedIds(next);
+                  }}
+                />
+              )}
+            </TableHead>
             <TableHead>Omschrijving</TableHead>
             <TableHead>Categorie</TableHead>
             <TableHead>BV</TableHead>
             <TableHead className="text-right">Bedrag</TableHead>
-            <TableHead className="w-[100px]">Acties</TableHead>
+            <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {items.length === 0 && (
-            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
+            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
-          {items.map((item, idx) => (
-            <TableRow key={`${item.ref_id}-${idx}`}>
-              <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
-              <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
-                  <span className="text-xs text-muted-foreground truncate max-w-[80px]">{item.bv_naam}</span>
-                </div>
-              </TableCell>
-              <TableCell className={cn('text-right font-mono text-sm', colorClass)}>
-                {type === 'out' ? '−' : '+'} {fmt(item.bedrag)}
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+          {items.map((item, idx) => {
+            const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
+            return (
+              <TableRow key={`${item.ref_id}-${idx}`}>
+                <TableCell className="w-8">
+                  {isSelectable && (
+                    <Checkbox
+                      checked={selectedIds.has(item.cashflow_item_id!)}
+                      onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
+                    />
+                  )}
+                </TableCell>
+                <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
+                <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
+                    <span className="text-xs text-muted-foreground truncate max-w-[80px]">{item.bv_naam}</span>
+                  </div>
+                </TableCell>
+                <TableCell className={cn('text-right font-mono text-sm', colorClass)}>
+                  {type === 'out' ? '−' : '+'} {fmt(item.bedrag)}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    {isSelectable && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                        onClick={async () => {
+                          if (!item.cashflow_item_id) return;
+                          await goedkeurenBulk([item.cashflow_item_id]);
+                        }}
+                        title="Goedkeuren voor betaling">
+                        <Check className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
         <TableFooter>
           <TableRow>
+            <TableCell />
             <TableCell colSpan={3} className="font-semibold">Totaal</TableCell>
             <TableCell className={cn('text-right font-mono font-semibold', colorClass)}>
               {type === 'out' ? '−' : '+'} {fmt(total)}
@@ -394,24 +472,50 @@ export default function FinanceMeeting() {
 
   const renderOutTable = () => {
     const colorClass = 'text-destructive';
+    const allSelectableOut = outDecision.filter(i => i.cashflow_item_id);
+    const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(i.cashflow_item_id!));
     return (
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-8">
+              {allSelectableOut.length > 0 && (
+                <Checkbox
+                  checked={allOutSelected}
+                  onCheckedChange={() => {
+                    const next = new Set(selectedIds);
+                    if (allOutSelected) {
+                      allSelectableOut.forEach(i => next.delete(i.cashflow_item_id!));
+                    } else {
+                      allSelectableOut.forEach(i => next.add(i.cashflow_item_id!));
+                    }
+                    setSelectedIds(next);
+                  }}
+                />
+              )}
+            </TableHead>
             <TableHead>Omschrijving</TableHead>
             <TableHead>Categorie</TableHead>
             <TableHead>BV</TableHead>
             <TableHead className="text-right">Bedrag</TableHead>
-            <TableHead className="w-[100px]">Acties</TableHead>
+            <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {/* Sectie 1: Te beslissen */}
           {outDecision.length === 0 && outRecurring.length === 0 && (
-            <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
+            <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {outDecision.map((item, idx) => (
             <TableRow key={`dec-${item.ref_id}-${idx}`}>
+              <TableCell className="w-8">
+                {item.cashflow_item_id && (
+                  <Checkbox
+                    checked={selectedIds.has(item.cashflow_item_id)}
+                    onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
+                  />
+                )}
+              </TableCell>
               <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
               <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
               <TableCell>
@@ -423,6 +527,16 @@ export default function FinanceMeeting() {
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
               <TableCell>
                 <div className="flex gap-1">
+                  {item.cashflow_item_id && (
+                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                      onClick={async () => {
+                        if (!item.cashflow_item_id) return;
+                        await goedkeurenBulk([item.cashflow_item_id]);
+                      }}
+                      title="Goedkeuren voor betaling">
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
@@ -437,7 +551,7 @@ export default function FinanceMeeting() {
           {/* Scheidingslijn */}
           {outRecurring.length > 0 && (
             <TableRow className="border-0 hover:bg-transparent">
-              <TableCell colSpan={5} className="py-2 px-4">
+              <TableCell colSpan={6} className="py-2 px-4">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="flex-1 border-t border-border" />
                   <Lock className="h-3 w-3" />
@@ -451,6 +565,7 @@ export default function FinanceMeeting() {
           {/* Sectie 2: Vaste lasten */}
           {outRecurring.map((item, idx) => (
             <TableRow key={`rec-${item.ref_id}-${idx}`} className="bg-muted/30 hover:bg-muted/40">
+              <TableCell />
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -471,18 +586,21 @@ export default function FinanceMeeting() {
         </TableBody>
         <TableFooter>
           <TableRow>
+            <TableCell />
             <TableCell colSpan={3} className="text-sm text-muted-foreground">Te beslissen</TableCell>
             <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totalDecision)}</TableCell>
             <TableCell />
           </TableRow>
           {outRecurring.length > 0 && (
             <TableRow>
+              <TableCell />
               <TableCell colSpan={3} className="text-sm text-muted-foreground">Vaste lasten</TableCell>
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totalRecurring)}</TableCell>
               <TableCell />
             </TableRow>
           )}
           <TableRow>
+            <TableCell />
             <TableCell colSpan={3} className="font-semibold">Totaal uit</TableCell>
             <TableCell className={cn('text-right font-mono font-semibold', colorClass)}>− {fmt(totalOut)}</TableCell>
             <TableCell />
@@ -532,6 +650,25 @@ export default function FinanceMeeting() {
 
         {/* ── TAB 1: Deze week ── */}
         <TabsContent value="deze-week" className="space-y-4 mt-4">
+          {/* Bulk action bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg">
+              <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
+              <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                onClick={() => goedkeurenBulk(Array.from(selectedIds))}>
+                <Check className="h-3.5 w-3.5 mr-1" /> Goedkeuren voor betaling
+              </Button>
+              <Button size="sm" variant="outline" className="h-8"
+                onClick={() => verschuifBulk(Array.from(selectedIds))}>
+                <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
+              </Button>
+              <Button size="sm" variant="ghost" className="h-8 ml-auto"
+                onClick={() => setSelectedIds(new Set())}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-3">
