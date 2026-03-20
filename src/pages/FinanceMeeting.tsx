@@ -101,6 +101,8 @@ export default function FinanceMeeting() {
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [editingSaldoId, setEditingSaldoId] = useState<string | null>(null);
+  const [saldoValues, setSaldoValues] = useState<Record<string, string>>({});
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
