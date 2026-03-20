@@ -1,15 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Download, Check, Plus, CreditCard, ArrowRight } from 'lucide-react';
+import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Invoice {
   id: string;
@@ -57,6 +60,8 @@ interface GoedgekeurdItem {
 
 export default function Betalingsronden() {
   const { bvs } = useBV();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'openstaand';
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -66,6 +71,9 @@ export default function Betalingsronden() {
   const [loading, setLoading] = useState(true);
   const [goedgekeurdItems, setGoedgekeurdItems] = useState<GoedgekeurdItem[]>([]);
   const [selectedCIIds, setSelectedCIIds] = useState<Set<string>>(new Set());
+  const [betaaldeItems, setBetaaldeItems] = useState<GoedgekeurdItem[]>([]);
+  const [selectedBetaaldIds, setSelectedBetaaldIds] = useState<Set<string>>(new Set());
+  const [historiekFilter, setHistoriekFilter] = useState('');
 
   const cpMap = useMemo(() => new Map(counterparties.map(c => [c.id, c])), [counterparties]);
   const bvMap = useMemo(() => new Map(bvs.map(b => [b.id, b])), [bvs]);
@@ -81,12 +89,14 @@ export default function Betalingsronden() {
     ]);
     const ci = await supabase.from('cashflow_items').select('*').eq('type', 'out');
     const goedgekeurdeCI = (ci.data || []).filter((item: any) => item.status === 'goedgekeurd');
+    const betaaldeCI = (ci.data || []).filter((item: any) => item.status === 'betaald');
     if (inv.data) setInvoices(inv.data);
     if (cp.data) setCounterparties(cp.data as Counterparty[]);
     if (ba.data) setBankAccounts(ba.data);
     if (pr.data) setPaymentRuns(pr.data);
     if (pri.data) setRunItems(pri.data);
     setGoedgekeurdItems(goedgekeurdeCI as GoedgekeurdItem[]);
+    setBetaaldeItems(betaaldeCI as GoedgekeurdItem[]);
     setLoading(false);
   }, []);
 
@@ -138,7 +148,7 @@ export default function Betalingsronden() {
     const bv = bvMap.get(run.bv_id || '');
     const ba = bankAccounts.find(a => a.bv_id === (run.bv_id || bvs[0]?.id));
     const debtorIBAN = ba?.iban?.replace(/\s/g, '') || 'NL00BANK0000000000';
-    const debtorName = bv?.naam || 'Boost';
+    const debtorName = (bv as any)?.naam || 'Boost';
     const msgId = `MSG-${run.id.slice(0, 8)}-${Date.now()}`;
     const creDtTm = new Date().toISOString();
     const nbOfTxs = items.length;
@@ -190,7 +200,6 @@ export default function Betalingsronden() {
     a.click();
     URL.revokeObjectURL(url);
 
-    // Update status
     supabase.from('payment_runs').update({ status: 'klaargezet' }).eq('id', run.id).then(() => fetchData());
     toast.success('SEPA XML gedownload');
   };
@@ -247,6 +256,43 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  // ── Historiek functies ──
+  const terugzettenEnkel = async (id: string) => {
+    const { error } = await supabase
+      .from('cashflow_items')
+      .update({ status: 'actief', goedgekeurd_op: null } as any)
+      .eq('id', id);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items',
+      actie: 'status → actief (teruggezet)',
+      record_id: id,
+      oud_waarde: { status: 'betaald' },
+      nieuw_waarde: { status: 'actief' },
+    });
+    toast.success('Post teruggezet naar actief');
+    fetchData();
+  };
+
+  const terugzettenBulk = async () => {
+    const ids = Array.from(selectedBetaaldIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items')
+        .update({ status: 'actief', goedgekeurd_op: null } as any)
+        .eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items',
+        actie: 'status → actief (teruggezet)',
+        record_id: id,
+        oud_waarde: { status: 'betaald' },
+        nieuw_waarde: { status: 'actief' },
+      });
+    }
+    toast.success(`${ids.length} posten teruggezet naar actief`);
+    setSelectedBetaaldIds(new Set());
+    fetchData();
+  };
+
   const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
 
   const STATUS_BADGE: Record<string, string> = {
@@ -259,194 +305,318 @@ export default function Betalingsronden() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Betalingsronden</h1>
 
-      {/* Section: Goedgekeurde cashflow items */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Goedgekeurd voor betaling</CardTitle>
-            {selectedCIIds.size > 0 && (
-              <div className="flex gap-2">
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={markeerBetaaldBulk}>
-                  <Check className="h-3.5 w-3.5 mr-1" /> Markeer betaald ({selectedCIIds.size})
-                </Button>
-                <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
-                  <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
-                </Button>
-              </div>
+      <Tabs defaultValue={defaultTab}>
+        <TabsList>
+          <TabsTrigger value="openstaand">Openstaand</TabsTrigger>
+          <TabsTrigger value="historiek" className="flex items-center gap-1.5">
+            Historiek
+            {betaaldeItems.length > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted-foreground/20 px-1.5 text-xs font-medium">
+                {betaaldeItems.length}
+              </span>
             )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {goedgekeurdItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">
-              Geen goedgekeurde posten — keur posten goed via de Finance Meeting.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8">
-                    <Checkbox
-                      checked={selectedCIIds.size === goedgekeurdItems.length && goedgekeurdItems.length > 0}
-                      onCheckedChange={() => {
-                        if (selectedCIIds.size === goedgekeurdItems.length) setSelectedCIIds(new Set());
-                        else setSelectedCIIds(new Set(goedgekeurdItems.map(i => i.id)));
-                      }}
-                    />
-                  </TableHead>
-                  <TableHead>Omschrijving</TableHead>
-                  <TableHead>BV</TableHead>
-                  <TableHead>Week</TableHead>
-                  <TableHead className="text-right">Bedrag</TableHead>
-                  <TableHead>Acties</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {goedgekeurdItems.map(item => {
-                  const bv = bvMap.get(item.bv_id);
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="openstaand" className="space-y-6">
+          {/* Section: Goedgekeurde cashflow items */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Goedgekeurd voor betaling</CardTitle>
+                {selectedCIIds.size > 0 && (
+                  <div className="flex gap-2">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={markeerBetaaldBulk}>
+                      <Check className="h-3.5 w-3.5 mr-1" /> Markeer betaald ({selectedCIIds.size})
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
+                      <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {goedgekeurdItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  Geen goedgekeurde posten — keur posten goed via de Finance Meeting.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
                         <Checkbox
-                          checked={selectedCIIds.has(item.id)}
+                          checked={selectedCIIds.size === goedgekeurdItems.length && goedgekeurdItems.length > 0}
                           onCheckedChange={() => {
-                            const next = new Set(selectedCIIds);
-                            next.has(item.id) ? next.delete(item.id) : next.add(item.id);
-                            setSelectedCIIds(next);
+                            if (selectedCIIds.size === goedgekeurdItems.length) setSelectedCIIds(new Set());
+                            else setSelectedCIIds(new Set(goedgekeurdItems.map(i => i.id)));
                           }}
                         />
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        <div>{item.omschrijving}</div>
-                        {item.factuurnummer && (
-                          <div className="text-xs text-muted-foreground font-mono">#{item.factuurnummer}</div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
-                          <span className="text-sm">{(bv as any)?.naam || '—'}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{item.week}</TableCell>
-                      <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(item.bedrag)}</TableCell>
-                      <TableCell>
-                        <Button size="sm" className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => markeerBetaald(item.id)}>
-                          <Check className="h-3.5 w-3.5 mr-1" /> Betaald
-                        </Button>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>Omschrijving</TableHead>
+                      <TableHead>BV</TableHead>
+                      <TableHead>Week</TableHead>
+                      <TableHead className="text-right">Bedrag</TableHead>
+                      <TableHead>Acties</TableHead>
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {goedgekeurdItems.map(item => {
+                      const bv = bvMap.get(item.bv_id);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedCIIds.has(item.id)}
+                              onCheckedChange={() => {
+                                const next = new Set(selectedCIIds);
+                                next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                                setSelectedCIIds(next);
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            <div>{item.omschrijving}</div>
+                            {item.factuurnummer && (
+                              <div className="text-xs text-muted-foreground font-mono">#{item.factuurnummer}</div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
+                              <span className="text-sm">{(bv as any)?.naam || '—'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{item.week}</TableCell>
+                          <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(item.bedrag)}</TableCell>
+                          <TableCell>
+                            <Button size="sm" className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                              onClick={() => markeerBetaald(item.id)}>
+                              <Check className="h-3.5 w-3.5 mr-1" /> Betaald
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Section A: Compose */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Nieuwe betalingsronde samenstellen</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {invoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Geen goedgekeurde facturen beschikbaar</p>
-          ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10"><Checkbox checked={selected.size === invoices.length && invoices.length > 0} onCheckedChange={() => { if (selected.size === invoices.length) setSelected(new Set()); else setSelected(new Set(invoices.map(i => i.id))); }} /></TableHead>
-                    <TableHead>Relatie</TableHead>
-                    <TableHead>BV</TableHead>
-                    <TableHead className="text-right">Bedrag</TableHead>
-                    <TableHead>Vervaldatum</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invoices.map(inv => {
-                    const cp = cpMap.get(inv.counterparty_id || '');
-                    const bv = bvMap.get(inv.bv_id);
-                    return (
-                      <TableRow key={inv.id}>
-                        <TableCell><Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} /></TableCell>
-                        <TableCell className="text-sm">{cp?.naam || '—'}</TableCell>
+          {/* Section A: Compose */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Nieuwe betalingsronde samenstellen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {invoices.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">Geen goedgekeurde facturen beschikbaar</p>
+              ) : (
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10"><Checkbox checked={selected.size === invoices.length && invoices.length > 0} onCheckedChange={() => { if (selected.size === invoices.length) setSelected(new Set()); else setSelected(new Set(invoices.map(i => i.id))); }} /></TableHead>
+                        <TableHead>Relatie</TableHead>
+                        <TableHead>BV</TableHead>
+                        <TableHead className="text-right">Bedrag</TableHead>
+                        <TableHead>Vervaldatum</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invoices.map(inv => {
+                        const cp = cpMap.get(inv.counterparty_id || '');
+                        const bv = bvMap.get(inv.bv_id);
+                        return (
+                          <TableRow key={inv.id}>
+                            <TableCell><Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} /></TableCell>
+                            <TableCell className="text-sm">{cp?.naam || '—'}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
+                                <span className="text-sm">{(bv as any)?.naam || '—'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm">{fmt(inv.bedrag)}</TableCell>
+                            <TableCell className="text-sm">{inv.vervaldatum ? format(new Date(inv.vervaldatum), 'd MMM yyyy', { locale: nl }) : '—'}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  {selected.size > 0 && (
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                      <span className="text-sm font-medium">{selected.size} facturen geselecteerd — totaal: <span className="font-mono">{fmt(selectedTotal)}</span></span>
+                      <Button onClick={createRun}><Plus className="mr-2 h-4 w-4" /> Maak betalingsronde</Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section B: Previous runs */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Eerdere betalingsronden</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {paymentRuns.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">Nog geen betalingsronden</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Naam</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Bedrag</TableHead>
+                      <TableHead className="text-right">Facturen</TableHead>
+                      <TableHead>Aangemaakt</TableHead>
+                      <TableHead>Acties</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paymentRuns.map(run => (
+                      <TableRow key={run.id}>
+                        <TableCell className="text-sm font-medium">{run.naam || '—'}</TableCell>
+                        <TableCell><Badge className={STATUS_BADGE[run.status] || ''}>{run.status}</Badge></TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmt(run.totaal_bedrag || 0)}</TableCell>
+                        <TableCell className="text-right text-sm">{run.aantal_facturen || 0}</TableCell>
+                        <TableCell className="text-sm">{run.aangemaakt_op ? format(new Date(run.aangemaakt_op), 'd MMM yyyy HH:mm', { locale: nl }) : '—'}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
-                            <span className="text-sm">{(bv as any)?.naam || '—'}</span>
+                          <div className="flex gap-2">
+                            {run.status !== 'uitgevoerd' && (
+                              <Button size="sm" variant="outline" onClick={() => generateSEPA(run)}>
+                                <Download className="mr-1.5 h-3.5 w-3.5" /> SEPA XML
+                              </Button>
+                            )}
+                            {(run.status === 'klaargezet') && (
+                              <Button size="sm" variant="outline" onClick={() => markExecuted(run)}>
+                                <Check className="mr-1.5 h-3.5 w-3.5" /> Markeer uitgevoerd
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-sm">{fmt(inv.bedrag)}</TableCell>
-                        <TableCell className="text-sm">{inv.vervaldatum ? format(new Date(inv.vervaldatum), 'd MMM yyyy', { locale: nl }) : '—'}</TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {selected.size > 0 && (
-                <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                  <span className="text-sm font-medium">{selected.size} facturen geselecteerd — totaal: <span className="font-mono">{fmt(selectedTotal)}</span></span>
-                  <Button onClick={createRun}><Plus className="mr-2 h-4 w-4" /> Maak betalingsronde</Button>
-                </div>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* Section B: Previous runs */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Eerdere betalingsronden</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {paymentRuns.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4">Nog geen betalingsronden</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Naam</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Bedrag</TableHead>
-                  <TableHead className="text-right">Facturen</TableHead>
-                  <TableHead>Aangemaakt</TableHead>
-                  <TableHead>Acties</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paymentRuns.map(run => (
-                  <TableRow key={run.id}>
-                    <TableCell className="text-sm font-medium">{run.naam || '—'}</TableCell>
-                    <TableCell><Badge className={STATUS_BADGE[run.status] || ''}>{run.status}</Badge></TableCell>
-                    <TableCell className="text-right font-mono text-sm">{fmt(run.totaal_bedrag || 0)}</TableCell>
-                    <TableCell className="text-right text-sm">{run.aantal_facturen || 0}</TableCell>
-                    <TableCell className="text-sm">{run.aangemaakt_op ? format(new Date(run.aangemaakt_op), 'd MMM yyyy HH:mm', { locale: nl }) : '—'}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {run.status !== 'uitgevoerd' && (
-                          <Button size="sm" variant="outline" onClick={() => generateSEPA(run)}>
-                            <Download className="mr-1.5 h-3.5 w-3.5" /> SEPA XML
-                          </Button>
-                        )}
-                        {(run.status === 'klaargezet') && (
-                          <Button size="sm" variant="outline" onClick={() => markExecuted(run)}>
-                            <Check className="mr-1.5 h-3.5 w-3.5" /> Markeer uitgevoerd
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+        <TabsContent value="historiek">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Betaalde posten</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Zoek op omschrijving…"
+                    value={historiekFilter}
+                    onChange={e => setHistoriekFilter(e.target.value)}
+                    className="h-8 w-48 text-sm"
+                  />
+                  {selectedBetaaldIds.size > 0 && (
+                    <Button size="sm" variant="outline" onClick={terugzettenBulk}>
+                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                      Terugzetten ({selectedBetaaldIds.size})
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {betaaldeItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">Nog geen betaalde posten.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8">
+                        <Checkbox
+                          checked={selectedBetaaldIds.size === betaaldeItems.length && betaaldeItems.length > 0}
+                          onCheckedChange={() => {
+                            if (selectedBetaaldIds.size === betaaldeItems.length) {
+                              setSelectedBetaaldIds(new Set());
+                            } else {
+                              setSelectedBetaaldIds(new Set(betaaldeItems.map(i => i.id)));
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead>Omschrijving</TableHead>
+                      <TableHead>BV</TableHead>
+                      <TableHead>Categorie</TableHead>
+                      <TableHead>Week</TableHead>
+                      <TableHead className="text-right">Bedrag</TableHead>
+                      <TableHead>Acties</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {betaaldeItems
+                      .filter(i =>
+                        !historiekFilter ||
+                        i.omschrijving?.toLowerCase().includes(historiekFilter.toLowerCase())
+                      )
+                      .map(item => {
+                        const bv = bvMap.get(item.bv_id);
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedBetaaldIds.has(item.id)}
+                                onCheckedChange={() => {
+                                  const next = new Set(selectedBetaaldIds);
+                                  next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+                                  setSelectedBetaaldIds(next);
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <div>{item.omschrijving}</div>
+                              {item.factuurnummer && (
+                                <div className="text-xs text-muted-foreground font-mono">
+                                  #{item.factuurnummer}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
+                                <span className="text-sm">{(bv as any)?.naam || '—'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {item.categorie || '—'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{item.week}</TableCell>
+                            <TableCell className="text-right font-mono text-sm text-destructive">
+                              − {fmt(item.bedrag)}
+                            </TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="outline" className="h-7"
+                                onClick={() => terugzettenEnkel(item.id)}
+                                title="Terugzetten naar actief"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                                Terugzetten
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
