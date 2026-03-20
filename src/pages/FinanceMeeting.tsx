@@ -760,57 +760,65 @@ export default function FinanceMeeting() {
 
 function BankstandRegel({ account, bvNaam, onSave }: { account: any; bvNaam: string; onSave: () => void }) {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(account.huidig_saldo ?? 0));
+  const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!editing) {
-      setValue(String(account.huidig_saldo ?? 0));
-    }
-  }, [account.huidig_saldo, editing]);
+    setValue(account.huidig_saldo != null ? String(account.huidig_saldo) : '0');
+    setEditing(false);
+  }, [account.id, account.huidig_saldo]);
 
   const handleSave = async () => {
+    const cleaned = value.replace(/\./g, '').replace(',', '.');
+    const nieuwSaldo = parseFloat(cleaned);
+    if (isNaN(nieuwSaldo)) {
+      toast.error('Ongeldig bedrag — gebruik een getal zoals 22494 of 22494.50');
+      return;
+    }
     setSaving(true);
-    const nieuwSaldo = parseFloat(value.replace(',', '.'));
-    if (isNaN(nieuwSaldo)) { toast.error('Ongeldig bedrag'); setSaving(false); return; }
     const { error } = await supabase
       .from('bank_accounts')
       .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
       .eq('id', account.id);
-    if (error) { toast.error('Fout: ' + error.message); }
-    else { toast.success(`Saldo bijgewerkt: ${bvNaam}`); setEditing(false); onSave(); }
+    if (error) {
+      toast.error('Fout bij opslaan: ' + error.message);
+    } else {
+      toast.success(`Saldo bijgewerkt: ${bvNaam}`);
+      setEditing(false);
+      onSave();
+    }
     setSaving(false);
   };
 
+  const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+
   return (
-    <div className="flex items-center gap-3 py-1.5">
+    <div className="flex items-center gap-3 py-1.5 border-b last:border-0">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{bvNaam}</p>
+        <p className="text-sm font-medium">{bvNaam}</p>
         <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
       </div>
       {editing ? (
         <div className="flex items-center gap-2">
           <Input
-            type="number"
+            type="text"
             value={value}
             onChange={e => setValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
             className="h-8 w-36 font-mono text-sm"
-            step="0.01"
             autoFocus
           />
           <Button size="sm" className="h-8" onClick={handleSave} disabled={saving}>
-            <Save className="h-3.5 w-3.5 mr-1" /> Opslaan
+            <Save className="h-3.5 w-3.5 mr-1" />Opslaan
           </Button>
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => { setEditing(false); setValue(String(account.huidig_saldo ?? 0)); }}>
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
             <X className="h-3.5 w-3.5" />
           </Button>
         </div>
       ) : (
         <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium">
-            {fmt(account.huidig_saldo ?? 0)}
-          </span>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => { setValue(String(account.huidig_saldo ?? 0)); setEditing(true); }}>
+          <span className="font-mono text-sm font-medium">{fmt(account.huidig_saldo ?? 0)}</span>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(true)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         </div>
