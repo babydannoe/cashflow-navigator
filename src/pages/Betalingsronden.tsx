@@ -72,14 +72,15 @@ export default function Betalingsronden() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [inv, cp, ba, pr, pri, ci] = await Promise.all([
+    const [inv, cp, ba, pr, pri] = await Promise.all([
       supabase.from('invoices').select('*').eq('status', 'goedgekeurd'),
       supabase.from('counterparties').select('*'),
       supabase.from('bank_accounts').select('*'),
       supabase.from('payment_runs').select('*').order('aangemaakt_op', { ascending: false }),
       supabase.from('payment_run_items').select('*'),
-      supabase.from('cashflow_items').select('*').eq('status' as any, 'goedgekeurd').eq('type', 'out'),
     ]);
+    const ci = await supabase.from('cashflow_items').select('*').eq('type', 'out');
+    const goedgekeurdeCI = (ci.data || []).filter((item: any) => item.status === 'goedgekeurd');
     if (inv.data) setInvoices(inv.data);
     if (cp.data) setCounterparties(cp.data as Counterparty[]);
     if (ba.data) setBankAccounts(ba.data);
