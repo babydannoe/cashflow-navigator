@@ -101,6 +101,8 @@ export default function FinanceMeeting() {
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [editingSaldoId, setEditingSaldoId] = useState<string | null>(null);
+  const [saldoValues, setSaldoValues] = useState<Record<string, string>>({});
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -162,6 +164,35 @@ export default function FinanceMeeting() {
   }, [localBVId, currentWeekDate]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Bankstand helpers ──
+  const startEditSaldo = (accountId: string, huidigSaldo: number) => {
+    setSaldoValues(prev => ({ ...prev, [accountId]: String(huidigSaldo) }));
+    setEditingSaldoId(accountId);
+  };
+
+  const saveSaldo = async (account: any) => {
+    const raw = saldoValues[account.id] ?? '';
+    const cleaned = raw.replace(/\./g, '').replace(',', '.');
+    const nieuwSaldo = parseFloat(cleaned);
+    if (isNaN(nieuwSaldo)) {
+      toast.error('Ongeldig bedrag');
+      return;
+    }
+    const { error } = await supabase
+      .from('bank_accounts')
+      .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
+      .eq('id', account.id);
+    if (error) {
+      toast.error('Fout: ' + error.message);
+      return;
+    }
+    toast.success('Saldo bijgewerkt');
+    setEditingSaldoId(null);
+    setBankAccounts(prev => prev.map(a =>
+      a.id === account.id ? { ...a, huidig_saldo: nieuwSaldo } : a
+    ));
+  };
 
    // ── Tab 1 helpers ──
   const outItems = cashflowItems.filter(i => i.type === 'out');
@@ -524,16 +555,45 @@ export default function FinanceMeeting() {
               <CardTitle className="text-base">Bankstanden bijwerken</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {bankAccounts.map(account => {
                   const bv = bvs.find(b => b.id === account.bv_id);
+                  const isEditing = editingSaldoId === account.id;
                   return (
-                    <BankstandRegel
-                      key={account.id}
-                      account={account}
-                      bvNaam={bv?.naam ?? 'Onbekende BV'}
-                      onSave={loadData}
-                    />
+                    <div key={account.id} className="flex items-center gap-3 py-2 border-b last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{bv?.naam ?? 'Onbekend'}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
+                      </div>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={saldoValues[account.id] ?? ''}
+                            onChange={e => setSaldoValues(prev => ({ ...prev, [account.id]: e.target.value }))}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveSaldo(account);
+                              if (e.key === 'Escape') setEditingSaldoId(null);
+                            }}
+                            className="h-8 w-36 font-mono text-sm"
+                            autoFocus
+                          />
+                          <Button size="sm" className="h-8" onClick={() => saveSaldo(account)}>
+                            <Save className="h-3.5 w-3.5 mr-1" />Opslaan
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingSaldoId(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-medium">{fmt(account.huidig_saldo ?? 0)}</span>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEditSaldo(account.id, account.huidig_saldo ?? 0)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
                 {bankAccounts.length === 0 && (
@@ -754,75 +814,6 @@ export default function FinanceMeeting() {
           )}
         </SheetContent>
       </Sheet>
-    </div>
-  );
-}
-
-function BankstandRegel({ account, bvNaam, onSave }: { account: any; bvNaam: string; onSave: () => void }) {
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setValue(account.huidig_saldo != null ? String(account.huidig_saldo) : '0');
-    setEditing(false);
-  }, [account.id, account.huidig_saldo]);
-
-  const handleSave = async () => {
-    const cleaned = value.replace(/\./g, '').replace(',', '.');
-    const nieuwSaldo = parseFloat(cleaned);
-    if (isNaN(nieuwSaldo)) {
-      toast.error('Ongeldig bedrag — gebruik een getal zoals 22494 of 22494.50');
-      return;
-    }
-    setSaving(true);
-    const { error } = await supabase
-      .from('bank_accounts')
-      .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
-      .eq('id', account.id);
-    if (error) {
-      toast.error('Fout bij opslaan: ' + error.message);
-    } else {
-      toast.success(`Saldo bijgewerkt: ${bvNaam}`);
-      setEditing(false);
-      onSave();
-    }
-    setSaving(false);
-  };
-
-  const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
-
-  return (
-    <div className="flex items-center gap-3 py-1.5 border-b last:border-0">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium">{bvNaam}</p>
-        <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
-      </div>
-      {editing ? (
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false); }}
-            className="h-8 w-36 font-mono text-sm"
-            autoFocus
-          />
-          <Button size="sm" className="h-8" onClick={handleSave} disabled={saving}>
-            <Save className="h-3.5 w-3.5 mr-1" />Opslaan
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditing(false)}>
-            <X className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium">{fmt(account.huidig_saldo ?? 0)}</span>
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => setEditing(true)}>
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
