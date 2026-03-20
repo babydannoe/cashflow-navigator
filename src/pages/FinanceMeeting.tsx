@@ -518,6 +518,23 @@ export default function FinanceMeeting() {
             </Card>
           </div>
 
+          {/* Bankstanden */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Bankstanden bijwerken</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {bankAccounts.map(account => (
+                  <BankstandRegel key={account.id} account={account} onSave={loadData} />
+                ))}
+                {bankAccounts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Geen bankrekeningen gevonden.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Summary bar */}
           <Card>
             <CardContent className="py-3 px-4">
