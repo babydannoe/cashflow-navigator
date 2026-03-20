@@ -181,12 +181,14 @@ export default function FinanceMeeting() {
     }
     const { error } = await supabase
       .from('bank_accounts')
-      .update({ huidig_saldo: nieuwSaldo, laatste_sync: new Date().toISOString() })
+      .update({ huidig_saldo: nieuwSaldo })
       .eq('id', account.id);
     if (error) {
-      toast.error('Fout: ' + error.message);
+      console.error('Supabase update error:', error);
+      toast.error('Fout bij opslaan: ' + error.message);
       return;
     }
+    console.log('Saldo opgeslagen voor account', account.id, '→', nieuwSaldo);
     toast.success('Saldo bijgewerkt');
     setEditingSaldoId(null);
     setBankAccounts(prev => prev.map(a =>
