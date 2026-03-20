@@ -86,7 +86,7 @@ export default function Betalingsronden() {
     if (ba.data) setBankAccounts(ba.data);
     if (pr.data) setPaymentRuns(pr.data);
     if (pri.data) setRunItems(pri.data);
-    if (ci.data) setGoedgekeurdItems(ci.data as GoedgekeurdItem[]);
+    setGoedgekeurdItems(goedgekeurdeCI as GoedgekeurdItem[]);
     setLoading(false);
   }, []);
 
