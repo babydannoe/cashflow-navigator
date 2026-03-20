@@ -526,16 +526,45 @@ export default function FinanceMeeting() {
               <CardTitle className="text-base">Bankstanden bijwerken</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
+              <div className="space-y-1">
                 {bankAccounts.map(account => {
                   const bv = bvs.find(b => b.id === account.bv_id);
+                  const isEditing = editingSaldoId === account.id;
                   return (
-                    <BankstandRegel
-                      key={account.id}
-                      account={account}
-                      bvNaam={bv?.naam ?? 'Onbekende BV'}
-                      onSave={loadData}
-                    />
+                    <div key={account.id} className="flex items-center gap-3 py-2 border-b last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">{bv?.naam ?? 'Onbekend'}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
+                      </div>
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            value={saldoValues[account.id] ?? ''}
+                            onChange={e => setSaldoValues(prev => ({ ...prev, [account.id]: e.target.value }))}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') saveSaldo(account);
+                              if (e.key === 'Escape') setEditingSaldoId(null);
+                            }}
+                            className="h-8 w-36 font-mono text-sm"
+                            autoFocus
+                          />
+                          <Button size="sm" className="h-8" onClick={() => saveSaldo(account)}>
+                            <Save className="h-3.5 w-3.5 mr-1" />Opslaan
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingSaldoId(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-medium">{fmt(account.huidig_saldo ?? 0)}</span>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => startEditSaldo(account.id, account.huidig_saldo ?? 0)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
                 {bankAccounts.length === 0 && (
