@@ -100,6 +100,7 @@ export default function FinanceMeeting() {
   // Tab 1 state
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [openingBalance, setOpeningBalance] = useState(0);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
