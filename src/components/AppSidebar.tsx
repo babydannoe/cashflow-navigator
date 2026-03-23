@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { useBV } from '@/contexts/BVContext';
 import { useTheme } from '@/contexts/ThemeContext';
