@@ -1,8 +1,9 @@
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
+import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { useBV } from '@/contexts/BVContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -27,6 +28,7 @@ const navItems = [
   { title: 'Buffers & Liquiditeit', url: '/buffers', icon: Shield },
   { title: 'BTW & Belasting', url: '/btw', icon: Calculator },
   { title: 'Leningen & Dividend', url: '/leningen', icon: Banknote },
+  { title: '2FA Instellen', url: '/mfa-setup', icon: Shield },
   { title: 'Instellingen', url: '/instellingen', icon: Settings },
 ];
 
@@ -36,6 +38,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { bvs, selectedBVId, setSelectedBVId, selectedBV } = useBV();
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -118,6 +121,18 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {!collapsed && (
+          <div className="px-3 pb-3 mt-auto">
+            <button
+              onClick={signOut}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-surface-raised rounded-md transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Uitloggen
+            </button>
+          </div>
+        )}
       </SidebarContent>
     </Sidebar>
   );
