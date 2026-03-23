@@ -313,6 +313,47 @@ export type Database = {
           },
         ]
       }
+      exact_tokens: {
+        Row: {
+          access_token: string
+          bv_id: string | null
+          created_at: string | null
+          division: number | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          bv_id?: string | null
+          created_at?: string | null
+          division?: number | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          bv_id?: string | null
+          created_at?: string | null
+          division?: number | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exact_tokens_bv_id_fkey"
+            columns: ["bv_id"]
+            isOneToOne: false
+            referencedRelation: "bv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forecasts: {
         Row: {
           bv_id: string
