@@ -38,6 +38,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { bvs, selectedBVId, setSelectedBVId, selectedBV } = useBV();
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
