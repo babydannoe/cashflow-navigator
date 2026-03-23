@@ -28,6 +28,7 @@ const navItems = [
   { title: 'Buffers & Liquiditeit', url: '/buffers', icon: Shield },
   { title: 'BTW & Belasting', url: '/btw', icon: Calculator },
   { title: 'Leningen & Dividend', url: '/leningen', icon: Banknote },
+  { title: '2FA Instellen', url: '/mfa-setup', icon: Shield },
   { title: 'Instellingen', url: '/instellingen', icon: Settings },
 ];
 
