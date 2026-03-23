@@ -89,8 +89,8 @@ export default function MFASetup() {
       <div className="max-w-md mx-auto mt-8">
         <Card>
           <CardHeader className="text-center space-y-3">
-            <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+              <CheckCircle2 className="h-6 w-6 text-success" />
             </div>
             <CardTitle>2FA is al actief</CardTitle>
             <p className="text-sm text-muted-foreground">
