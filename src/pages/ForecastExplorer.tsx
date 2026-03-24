@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
