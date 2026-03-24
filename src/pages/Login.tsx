@@ -11,12 +11,35 @@ import mrboostLogo from '@/assets/mrboost-logo.svg';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const [loginMode, setLoginMode] = useState<'pin' | 'email'>('pin');
   const [loading, setLoading] = useState(false);
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [factorId, setFactorId] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const navigate = useNavigate();
+
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinCode !== '9999') {
+      toast.error('Ongeldige code');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: 'daan@mrboost.nl',
+      password: 'MrBoost9999!',
+    });
+    if (error) {
+      toast.error('Login mislukt: ' + error.message);
+      setLoading(false);
+      return;
+    }
+    toast.success('Ingelogd!');
+    navigate('/');
+    setLoading(false);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,37 +145,74 @@ export default function Login() {
           <CardTitle className="text-xl">Inloggen</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="E-mailadres"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="pl-10"
-                  required
-                />
+          {loginMode === 'pin' ? (
+            <form onSubmit={handlePinLogin} className="space-y-4">
+              <div className="space-y-2">
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={4}
+                    placeholder="Voer code in"
+                    value={pinCode}
+                    onChange={e => setPinCode(e.target.value.replace(/\D/g, ''))}
+                    className="pl-10 text-center text-2xl tracking-[0.5em] font-mono"
+                    autoFocus
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="password"
-                  placeholder="Wachtwoord"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="pl-10"
-                  required
-                />
+              <Button type="submit" className="w-full" disabled={loading || pinCode.length !== 4}>
+                {loading ? 'Inloggen...' : 'Inloggen'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('email')}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Inloggen met e-mail
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="email"
+                    placeholder="E-mailadres"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Inloggen...' : 'Inloggen'}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    placeholder="Wachtwoord"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Inloggen...' : 'Inloggen'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('pin')}
+                className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Inloggen met code
+              </button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
