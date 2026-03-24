@@ -242,7 +242,7 @@ export default function Facturen() {
       </div>
 
       {/* Bulk actions */}
-      {selected.size > 0 && (
+      {selected.size > 0 && isAdmin && (
         <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5">
           <span className="text-sm font-medium">{selected.size} geselecteerd</span>
           <Button size="sm" variant="outline" onClick={() => bulkUpdateStatus('ter_goedkeuring')}>

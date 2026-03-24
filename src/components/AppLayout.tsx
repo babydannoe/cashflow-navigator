@@ -1,6 +1,7 @@
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useBV } from '@/contexts/BVContext';
+import { ViewerBanner } from '@/components/ViewerBanner';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { selectedBV } = useBV();
@@ -19,6 +20,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </header>
+          <ViewerBanner />
           <main className="flex-1 p-6 overflow-auto">
             {children}
           </main>
