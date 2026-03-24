@@ -329,7 +329,7 @@ export default function ExactImport() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Tegenpartij</span>
-                  <p className="font-medium">{importModal.factuurnummer ?? '—'}</p>
+                  <p className="font-medium">{importModal.counterparties?.naam ?? importModal.factuurnummer ?? '—'}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Bedrag</span>
