@@ -449,7 +449,7 @@ export default function Betalingsronden() {
                       })}
                     </TableBody>
                   </Table>
-                  {selected.size > 0 && (
+                  {isAdmin && selected.size > 0 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <span className="text-sm font-medium">{selected.size} facturen geselecteerd — totaal: <span className="font-mono">{fmt(selectedTotal)}</span></span>
                       <Button onClick={createRun}><Plus className="mr-2 h-4 w-4" /> Maak betalingsronde</Button>

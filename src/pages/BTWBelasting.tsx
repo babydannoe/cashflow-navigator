@@ -183,14 +183,14 @@ export default function BTWBelasting() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={entry.bedrag} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, bedrag: e.target.value } }))} className="h-8 w-32 text-sm font-mono" step="0.01" />
+                          <Input type="number" value={entry.bedrag} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, bedrag: e.target.value } }))} className="h-8 w-32 text-sm font-mono" step="0.01" disabled={!isAdmin} />
                         </TableCell>
                         <TableCell>
-                          <Input type="date" value={entry.datum} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, datum: e.target.value } }))} className="h-8 w-40 text-sm" />
+                          <Input type="date" value={entry.datum} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, datum: e.target.value } }))} className="h-8 w-40 text-sm" disabled={!isAdmin} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Switch checked={entry.inForecast} onCheckedChange={checked => {
+                            <Switch disabled={!isAdmin} checked={entry.inForecast} onCheckedChange={checked => {
                               setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, inForecast: checked } }));
                               if (checked) saveVPBToForecast(bv.id);
                             }} />
