@@ -384,8 +384,8 @@ export default function FinanceMeeting() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-8">
-              {selectableItems.length > 0 && (
+             <TableHead className="w-8">
+              {!isViewer && selectableItems.length > 0 && (
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={() => {
