@@ -52,6 +52,7 @@ function ProtectedRoutes() {
           <Route path="/bv-overzicht" element={<BVOverzicht />} />
           <Route path="/mt-pipeline" element={<MTPipeline />} />
           <Route path="/facturen" element={<Facturen />} />
+          <Route path="/exact-import" element={<ExactImport />} />
           <Route path="/betalingsronden" element={<Betalingsronden />} />
           <Route path="/recurring" element={<RecurringKosten />} />
           <Route path="/buffers" element={<BuffersLiquiditeit />} />

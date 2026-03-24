@@ -68,10 +68,12 @@ export default function ExactImport() {
         .eq('bv_id', selectedBvId)
         .eq('type', activeTab)
         .eq('bron', 'exact')
-        .in('import_status' as any, ['pending', 'skipped'])
         .order('vervaldatum', { ascending: true });
       if (error) throw error;
-      return (data ?? []).map(castInvoice);
+      // Filter client-side for import_status since column may not be in generated types yet
+      return (data ?? [])
+        .map(castInvoice)
+        .filter(inv => inv.import_status === 'pending' || inv.import_status === 'skipped');
     },
     enabled: !!selectedBvId,
   });
