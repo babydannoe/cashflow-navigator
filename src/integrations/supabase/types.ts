@@ -409,7 +409,10 @@ export type Database = {
           counterparty_id: string | null
           exact_id: string | null
           factuurnummer: string | null
+          forecast_item_id: string | null
           id: string
+          import_status: string | null
+          imported_at: string | null
           laatste_sync: string | null
           status: string | null
           type: string | null
@@ -422,7 +425,10 @@ export type Database = {
           counterparty_id?: string | null
           exact_id?: string | null
           factuurnummer?: string | null
+          forecast_item_id?: string | null
           id?: string
+          import_status?: string | null
+          imported_at?: string | null
           laatste_sync?: string | null
           status?: string | null
           type?: string | null
@@ -435,7 +441,10 @@ export type Database = {
           counterparty_id?: string | null
           exact_id?: string | null
           factuurnummer?: string | null
+          forecast_item_id?: string | null
           id?: string
+          import_status?: string | null
+          imported_at?: string | null
           laatste_sync?: string | null
           status?: string | null
           type?: string | null
@@ -454,6 +463,13 @@ export type Database = {
             columns: ["counterparty_id"]
             isOneToOne: false
             referencedRelation: "counterparties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_forecast_item_id_fkey"
+            columns: ["forecast_item_id"]
+            isOneToOne: false
+            referencedRelation: "cashflow_items"
             referencedColumns: ["id"]
           },
         ]
