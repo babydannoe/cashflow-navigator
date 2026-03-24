@@ -96,6 +96,7 @@ interface Termijn {
 
 export default function FinanceMeeting() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const [localBVId, setLocalBVId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
