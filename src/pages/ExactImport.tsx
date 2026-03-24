@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { format, startOfISOWeek } from 'date-fns';
 import { nl } from 'date-fns/locale';
@@ -42,6 +43,7 @@ function castInvoice(row: any): Invoice {
 
 export default function ExactImport() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedBvId, setSelectedBvId] = useState<string>(bvs[0]?.id ?? '');
   const [activeTab, setActiveTab] = useState<'AR' | 'AP'>('AR');
@@ -192,10 +194,12 @@ export default function ExactImport() {
           <h1 className="text-2xl font-bold text-foreground">Exact Import</h1>
           <p className="text-muted-foreground">Beoordeel nieuwe posten vanuit Exact Online</p>
         </div>
-        <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Sync nieuwe posten
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Sync nieuwe posten
+          </Button>
+        )}
       </div>
 
       {/* BV Selector */}
@@ -277,25 +281,29 @@ export default function ExactImport() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-green-600 border-green-500/30 hover:bg-green-500/10"
-                              onClick={() => openImportModal(inv)}
-                            >
-                              <Check className="h-3.5 w-3.5 mr-1" /> Importeren
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground"
-                              onClick={() => skipMutation.mutate(inv.id)}
-                              disabled={inv.import_status === 'skipped'}
-                            >
-                              <SkipForward className="h-3.5 w-3.5 mr-1" /> Niet importeren
-                            </Button>
-                          </div>
+                          {isViewer ? (
+                            <span className="text-xs text-muted-foreground">Alleen admins kunnen importeren</span>
+                          ) : (
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 border-green-500/30 hover:bg-green-500/10"
+                                onClick={() => openImportModal(inv)}
+                              >
+                                <Check className="h-3.5 w-3.5 mr-1" /> Importeren
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground"
+                                onClick={() => skipMutation.mutate(inv.id)}
+                                disabled={inv.import_status === 'skipped'}
+                              >
+                                <SkipForward className="h-3.5 w-3.5 mr-1" /> Niet importeren
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

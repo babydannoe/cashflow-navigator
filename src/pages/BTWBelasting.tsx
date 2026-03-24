@@ -4,6 +4,7 @@ import { nl } from 'date-fns/locale';
 import { Plus, Calculator, ToggleLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ interface VatPosition { id: string; bv_id: string; periode_label: string | null;
 
 export default function BTWBelasting() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [vatPositions, setVatPositions] = useState<VatPosition[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,9 +147,11 @@ export default function BTWBelasting() {
                     </Table>
                   )}
 
-                  <Button size="sm" variant="outline" onClick={() => addBTWToForecast(bv.id)}>
-                    <Calculator className="mr-1.5 h-3.5 w-3.5" /> Voeg BTW-afdracht toe aan forecast
-                  </Button>
+                  {isAdmin && (
+                    <Button size="sm" variant="outline" onClick={() => addBTWToForecast(bv.id)}>
+                      <Calculator className="mr-1.5 h-3.5 w-3.5" /> Voeg BTW-afdracht toe aan forecast
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -179,14 +183,14 @@ export default function BTWBelasting() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Input type="number" value={entry.bedrag} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, bedrag: e.target.value } }))} className="h-8 w-32 text-sm font-mono" step="0.01" />
+                          <Input type="number" value={entry.bedrag} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, bedrag: e.target.value } }))} className="h-8 w-32 text-sm font-mono" step="0.01" disabled={!isAdmin} />
                         </TableCell>
                         <TableCell>
-                          <Input type="date" value={entry.datum} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, datum: e.target.value } }))} className="h-8 w-40 text-sm" />
+                          <Input type="date" value={entry.datum} onChange={e => setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, datum: e.target.value } }))} className="h-8 w-40 text-sm" disabled={!isAdmin} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Switch checked={entry.inForecast} onCheckedChange={checked => {
+                            <Switch disabled={!isAdmin} checked={entry.inForecast} onCheckedChange={checked => {
                               setVpbEntries(prev => ({ ...prev, [bv.id]: { ...entry, inForecast: checked } }));
                               if (checked) saveVPBToForecast(bv.id);
                             }} />

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -85,6 +86,7 @@ const TYPE_FILTERS = [
 
 export default function ForecastExplorer() {
   const { bvs, selectedBVId, setSelectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [weekBuckets, setWeekBuckets] = useState<WeekBucket[]>([]);
   const [forecasts, setForecasts] = useState<ForecastWeek[]>([]);
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
@@ -322,10 +324,12 @@ export default function ForecastExplorer() {
             <Download className="h-4 w-4 mr-1" />
             Exporteer XLSX
           </Button>
-          <Button onClick={handleNewPost} size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-1" />
-            Nieuwe post
-          </Button>
+          {isAdmin && (
+            <Button onClick={handleNewPost} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              Nieuwe post
+            </Button>
+          )}
         </div>
       </div>
 

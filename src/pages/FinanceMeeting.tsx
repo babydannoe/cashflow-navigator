@@ -19,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
 import { toast } from 'sonner';
 
@@ -95,6 +96,7 @@ interface Termijn {
 
 export default function FinanceMeeting() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const [localBVId, setLocalBVId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -382,8 +384,8 @@ export default function FinanceMeeting() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-8">
-              {selectableItems.length > 0 && (
+             <TableHead className="w-8">
+              {!isViewer && selectableItems.length > 0 && (
                 <Checkbox
                   checked={allSelected}
                   onCheckedChange={() => {
@@ -414,7 +416,7 @@ export default function FinanceMeeting() {
             return (
               <TableRow key={`${item.ref_id}-${idx}`}>
                 <TableCell className="w-8">
-                  {isSelectable && (
+                  {!isViewer && isSelectable && (
                     <Checkbox
                       checked={selectedIds.has(item.cashflow_item_id!)}
                       onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
@@ -433,24 +435,26 @@ export default function FinanceMeeting() {
                   {type === 'out' ? '−' : '+'} {fmt(item.bedrag)}
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
-                    {isSelectable && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
-                        onClick={async () => {
-                          if (!item.cashflow_item_id) return;
-                          await goedkeurenBulk([item.cashflow_item_id]);
-                        }}
-                        title="Goedkeuren voor betaling">
-                        <Check className="h-3.5 w-3.5" />
+                  {!isViewer && (
+                    <div className="flex gap-1">
+                      {isSelectable && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                          onClick={async () => {
+                            if (!item.cashflow_item_id) return;
+                            await goedkeurenBulk([item.cashflow_item_id]);
+                          }}
+                          title="Goedkeuren voor betaling">
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
+                        <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             );

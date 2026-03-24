@@ -5,6 +5,7 @@ import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw } from 'lucide
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -60,6 +61,7 @@ interface GoedgekeurdItem {
 
 export default function Betalingsronden() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'openstaand';
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -324,7 +326,7 @@ export default function Betalingsronden() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Goedgekeurd voor betaling</CardTitle>
-                {selectedCIIds.size > 0 && (
+                {isAdmin && selectedCIIds.size > 0 && (
                   <div className="flex gap-2">
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={markeerBetaaldBulk}>
@@ -447,7 +449,7 @@ export default function Betalingsronden() {
                       })}
                     </TableBody>
                   </Table>
-                  {selected.size > 0 && (
+                  {isAdmin && selected.size > 0 && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <span className="text-sm font-medium">{selected.size} facturen geselecteerd — totaal: <span className="font-mono">{fmt(selectedTotal)}</span></span>
                       <Button onClick={createRun}><Plus className="mr-2 h-4 w-4" /> Maak betalingsronde</Button>
