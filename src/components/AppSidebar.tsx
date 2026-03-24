@@ -1,12 +1,15 @@
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut, Inbox
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { useBV } from '@/contexts/BVContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar,
@@ -23,6 +26,7 @@ const navItems = [
   { title: 'BV Overzicht', url: '/bv-overzicht', icon: Building2 },
   { title: 'MT Pipeline', url: '/mt-pipeline', icon: Target },
   { title: 'Facturen & Goedkeuringen', url: '/facturen', icon: FileCheck },
+  { title: 'Exact Import', url: '/exact-import', icon: Inbox, hasBadge: true },
   { title: 'Betalingsronden', url: '/betalingsronden', icon: CreditCard },
   { title: 'Recurring Kosten', url: '/recurring', icon: RefreshCw },
   { title: 'Buffers & Liquiditeit', url: '/buffers', icon: Shield },
@@ -30,7 +34,7 @@ const navItems = [
   { title: 'Leningen & Dividend', url: '/leningen', icon: Banknote },
   { title: '2FA Instellen', url: '/mfa-setup', icon: Shield },
   { title: 'Instellingen', url: '/instellingen', icon: Settings },
-];
+] as const;
 
 export function AppSidebar() {
   const { state } = useSidebar();
