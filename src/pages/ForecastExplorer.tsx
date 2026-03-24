@@ -86,6 +86,7 @@ const TYPE_FILTERS = [
 
 export default function ForecastExplorer() {
   const { bvs, selectedBVId, setSelectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [weekBuckets, setWeekBuckets] = useState<WeekBucket[]>([]);
   const [forecasts, setForecasts] = useState<ForecastWeek[]>([]);
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
