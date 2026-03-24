@@ -187,9 +187,13 @@ export default function LeningenDividend() {
         </TabsList>
 
         <TabsContent value="leningen" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setNewLoan(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setLoanOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Lening toevoegen
+          {isAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => { setNewLoan(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setLoanOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Lening toevoegen
+              </Button>
+            </div>
+          )}
             </Button>
           </div>
 
