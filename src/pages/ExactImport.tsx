@@ -194,10 +194,12 @@ export default function ExactImport() {
           <h1 className="text-2xl font-bold text-foreground">Exact Import</h1>
           <p className="text-muted-foreground">Beoordeel nieuwe posten vanuit Exact Online</p>
         </div>
-        <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Sync nieuwe posten
-        </Button>
+        {isAdmin && (
+          <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Sync nieuwe posten
+          </Button>
+        )}
       </div>
 
       {/* BV Selector */}
