@@ -276,10 +276,13 @@ export default function LeningenDividend() {
         </TabsContent>
 
         <TabsContent value="dividend" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setNewDiv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setDivOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Dividend plannen
-            </Button>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => { setNewDiv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setDivOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Dividend plannen
+              </Button>
+            </div>
+          )}
           </div>
 
           <Card>
