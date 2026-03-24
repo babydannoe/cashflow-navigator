@@ -57,7 +57,7 @@ function ProtectedRoutes() {
           <Route path="/btw" element={<BTWBelasting />} />
           <Route path="/leningen" element={<LeningenDividend />} />
           <Route path="/mfa-setup" element={<MFASetup />} />
-          <Route path="/instellingen" element={<PlaceholderPage title="Instellingen" />} />
+          <Route path="/instellingen" element={<Instellingen />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AppLayout>
