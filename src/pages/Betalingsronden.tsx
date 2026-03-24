@@ -61,6 +61,7 @@ interface GoedgekeurdItem {
 
 export default function Betalingsronden() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get('tab') || 'openstaand';
   const [invoices, setInvoices] = useState<Invoice[]>([]);

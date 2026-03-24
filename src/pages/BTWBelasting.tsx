@@ -22,6 +22,7 @@ interface VatPosition { id: string; bv_id: string; periode_label: string | null;
 
 export default function BTWBelasting() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [vatPositions, setVatPositions] = useState<VatPosition[]>([]);
   const [loading, setLoading] = useState(true);
