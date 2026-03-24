@@ -1,12 +1,15 @@
+import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, TrendingUp, Building2, Target, FileCheck,
-  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut
+  CreditCard, RefreshCw, Shield, Calculator, Banknote, Settings, ChevronDown, Sun, Moon, CalendarCheck, LogOut, Inbox
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import { useBV } from '@/contexts/BVContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, useSidebar,
@@ -23,6 +26,7 @@ const navItems = [
   { title: 'BV Overzicht', url: '/bv-overzicht', icon: Building2 },
   { title: 'MT Pipeline', url: '/mt-pipeline', icon: Target },
   { title: 'Facturen & Goedkeuringen', url: '/facturen', icon: FileCheck },
+  { title: 'Exact Import', url: '/exact-import', icon: Inbox, hasBadge: true },
   { title: 'Betalingsronden', url: '/betalingsronden', icon: CreditCard },
   { title: 'Recurring Kosten', url: '/recurring', icon: RefreshCw },
   { title: 'Buffers & Liquiditeit', url: '/buffers', icon: Shield },
@@ -30,7 +34,7 @@ const navItems = [
   { title: 'Leningen & Dividend', url: '/leningen', icon: Banknote },
   { title: '2FA Instellen', url: '/mfa-setup', icon: Shield },
   { title: 'Instellingen', url: '/instellingen', icon: Settings },
-];
+] as const;
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -39,6 +43,22 @@ export function AppSidebar() {
   const { bvs, selectedBVId, setSelectedBVId, selectedBV } = useBV();
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      // Use raw filter to avoid type issues with new column
+      const { count } = await (supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('bron', 'exact') as any)
+        .eq('import_status', 'pending');
+      setPendingCount(count ?? 0);
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
@@ -112,7 +132,16 @@ export function AppSidebar() {
                         activeClassName="bg-surface-raised text-foreground font-semibold border-l-2 border-primary"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && (
+                          <span className="flex-1 flex items-center justify-between">
+                            <span>{item.title}</span>
+                            {'hasBadge' in item && item.hasBadge && pendingCount > 0 && (
+                              <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1.5 text-xs">
+                                {pendingCount}
+                              </Badge>
+                            )}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

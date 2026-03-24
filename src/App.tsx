@@ -15,6 +15,7 @@ import BuffersLiquiditeit from "./pages/BuffersLiquiditeit";
 import RecurringKosten from "./pages/RecurringKosten";
 import Facturen from "./pages/Facturen";
 import Betalingsronden from "./pages/Betalingsronden";
+import ExactImport from "./pages/ExactImport";
 import BTWBelasting from "./pages/BTWBelasting";
 import LeningenDividend from "./pages/LeningenDividend";
 import FinanceMeeting from "./pages/FinanceMeeting";
@@ -51,6 +52,7 @@ function ProtectedRoutes() {
           <Route path="/bv-overzicht" element={<BVOverzicht />} />
           <Route path="/mt-pipeline" element={<MTPipeline />} />
           <Route path="/facturen" element={<Facturen />} />
+          <Route path="/exact-import" element={<ExactImport />} />
           <Route path="/betalingsronden" element={<Betalingsronden />} />
           <Route path="/recurring" element={<RecurringKosten />} />
           <Route path="/buffers" element={<BuffersLiquiditeit />} />
