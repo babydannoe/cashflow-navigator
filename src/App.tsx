@@ -19,6 +19,7 @@ import BTWBelasting from "./pages/BTWBelasting";
 import LeningenDividend from "./pages/LeningenDividend";
 import FinanceMeeting from "./pages/FinanceMeeting";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import Instellingen from "./pages/Instellingen";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import MFASetup from "./pages/MFASetup";
