@@ -299,13 +299,15 @@ export default function RecurringKosten() {
                           <TableCell>{rule.frequentie}</TableCell>
                           <TableCell>{rule.verwachte_betaaldag || '—'}</TableCell>
                           <TableCell><Badge variant="secondary">{rule.bron}</Badge></TableCell>
-                          <TableCell><Switch checked={!!rule.actief} onCheckedChange={() => toggleActief(rule)} /></TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => startEdit(rule)}><Pencil className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => deleteRule(rule)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                          </TableCell>
+                          <TableCell><Switch checked={!!rule.actief} onCheckedChange={() => toggleActief(rule)} disabled={!isAdmin} /></TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => startEdit(rule)}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteRule(rule)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}

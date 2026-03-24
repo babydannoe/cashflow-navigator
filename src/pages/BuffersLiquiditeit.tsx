@@ -186,8 +186,8 @@ export default function BuffersLiquiditeit() {
                   <TableCell className="text-right">{fmt(buf.bedrag || 0)}</TableCell>
                   <TableCell>{bvs.find(b => b.id === buf.bv_id)?.naam || '—'}</TableCell>
                   <TableCell>{buf.prioriteit}</TableCell>
-                  <TableCell><Switch checked={!!buf.actief} onCheckedChange={() => toggleActief(buf)} /></TableCell>
-                  <TableCell><Button variant="ghost" size="icon" onClick={() => deleteBuffer(buf)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                  <TableCell><Switch checked={!!buf.actief} onCheckedChange={() => toggleActief(buf)} disabled={!isAdmin} /></TableCell>
+                  <TableCell>{isAdmin && <Button variant="ghost" size="icon" onClick={() => deleteBuffer(buf)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
