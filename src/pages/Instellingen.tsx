@@ -15,7 +15,7 @@ import {
 import { RefreshCw, Link2, Unlink, Loader2, CheckCircle2, Construction, ExternalLink } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface ExactToken {
   id: string;
