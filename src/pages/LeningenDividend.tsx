@@ -194,8 +194,6 @@ export default function LeningenDividend() {
               </Button>
             </div>
           )}
-            </Button>
-          </div>
 
           {loans.length === 0 ? (
             <Card><CardContent className="py-8 text-center text-muted-foreground">Geen leningen gevonden</CardContent></Card>
