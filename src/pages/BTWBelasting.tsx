@@ -147,9 +147,11 @@ export default function BTWBelasting() {
                     </Table>
                   )}
 
-                  <Button size="sm" variant="outline" onClick={() => addBTWToForecast(bv.id)}>
-                    <Calculator className="mr-1.5 h-3.5 w-3.5" /> Voeg BTW-afdracht toe aan forecast
-                  </Button>
+                  {isAdmin && (
+                    <Button size="sm" variant="outline" onClick={() => addBTWToForecast(bv.id)}>
+                      <Calculator className="mr-1.5 h-3.5 w-3.5" /> Voeg BTW-afdracht toe aan forecast
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );
