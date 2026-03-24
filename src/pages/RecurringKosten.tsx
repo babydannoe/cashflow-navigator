@@ -235,7 +235,7 @@ export default function RecurringKosten() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
+            )}
 
           <Card>
             <CardContent className="p-0">
