@@ -132,7 +132,16 @@ export function AppSidebar() {
                         activeClassName="bg-surface-raised text-foreground font-semibold border-l-2 border-primary"
                       >
                         <item.icon className="h-4 w-4 shrink-0" />
-                        {!collapsed && <span>{item.title}</span>}
+                        {!collapsed && (
+                          <span className="flex-1 flex items-center justify-between">
+                            <span>{item.title}</span>
+                            {'hasBadge' in item && item.hasBadge && pendingCount > 0 && (
+                              <Badge variant="secondary" className="ml-2 h-5 min-w-[20px] px-1.5 text-xs">
+                                {pendingCount}
+                              </Badge>
+                            )}
+                          </span>
+                        )}
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
