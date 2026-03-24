@@ -126,10 +126,11 @@ export default function BuffersLiquiditeit() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Buffer beheer</CardTitle>
-          <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe buffer</Button>
-            </DialogTrigger>
+          {isAdmin && (
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe buffer</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Nieuwe buffer toevoegen</DialogTitle></DialogHeader>
               <div className="space-y-4">
