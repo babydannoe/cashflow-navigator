@@ -324,10 +324,12 @@ export default function ForecastExplorer() {
             <Download className="h-4 w-4 mr-1" />
             Exporteer XLSX
           </Button>
-          <Button onClick={handleNewPost} size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-1" />
-            Nieuwe post
-          </Button>
+          {isAdmin && (
+            <Button onClick={handleNewPost} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              Nieuwe post
+            </Button>
+          )}
         </div>
       </div>
 
