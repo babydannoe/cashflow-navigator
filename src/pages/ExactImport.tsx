@@ -264,7 +264,7 @@ export default function ExactImport() {
                       <TableRow key={inv.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
-                        <TableCell>{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell>{inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}</TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(inv.bedrag)}
                         </TableCell>
