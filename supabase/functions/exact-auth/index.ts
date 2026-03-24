@@ -95,6 +95,32 @@ Deno.serve(async (req) => {
       const meData = await meRes.json();
       const division = meData.d?.results?.[0]?.CurrentDivision ?? meData.d?.CurrentDivision;
 
+      // Fetch all available divisions
+      let availableDivisions: any[] = [];
+      try {
+        const divRes = await fetch(
+          `https://start.exactonline.nl/api/v1/${division}/system/Divisions?$select=Code,Description,CustomerName`,
+          {
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+        if (divRes.ok) {
+          const divData = await divRes.json();
+          availableDivisions = (divData.d?.results ?? []).map((d: any) => ({
+            Code: d.Code,
+            Description: d.Description,
+            CustomerName: d.CustomerName,
+          }));
+        } else {
+          console.error("Divisions fetch failed:", await divRes.text());
+        }
+      } catch (e) {
+        console.error("Divisions fetch error:", e);
+      }
+
       // Upsert tokens
       const { error: upsertError } = await supabase
         .from("exact_tokens")
@@ -104,6 +130,7 @@ Deno.serve(async (req) => {
             access_token,
             refresh_token,
             division,
+            available_divisions: availableDivisions,
             expires_at: new Date(Date.now() + (expires_in - 10) * 1000).toISOString(),
           },
           { onConflict: "bv_id" }

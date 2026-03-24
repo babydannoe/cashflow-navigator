@@ -150,7 +150,21 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const { access_token, division } = tokens;
+      const { access_token, division: tokenDivision } = tokens;
+
+      // Use per-BV division from bv table if set, otherwise fallback to token division
+      const { data: bvRow } = await supabase
+        .from("bv")
+        .select("exact_division_code")
+        .eq("id", currentBvId)
+        .single();
+
+      const division = bvRow?.exact_division_code ?? tokenDivision;
+
+      if (!division) {
+        allResults.push({ bv_id: currentBvId, error: "Geen Exact divisie ingesteld voor deze BV" });
+        continue;
+      }
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       const sinceDate = sixMonthsAgo.toISOString().split("T")[0];
