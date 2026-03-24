@@ -237,6 +237,8 @@ export default function RecurringKosten() {
             </Dialog>
             )}
           </div>
+
+          <Card>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <Table>
