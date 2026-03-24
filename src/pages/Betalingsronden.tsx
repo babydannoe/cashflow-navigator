@@ -326,7 +326,7 @@ export default function Betalingsronden() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Goedgekeurd voor betaling</CardTitle>
-                {selectedCIIds.size > 0 && (
+                {isAdmin && selectedCIIds.size > 0 && (
                   <div className="flex gap-2">
                     <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white"
                       onClick={markeerBetaaldBulk}>
