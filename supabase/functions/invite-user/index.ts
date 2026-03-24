@@ -100,6 +100,48 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Route: RESEND invite
+    if (path.endsWith("/resend")) {
+      const { email } = await req.json();
+      if (!email) {
+        return new Response(JSON.stringify({ error: "Email is vereist" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Generate a new invite link which sends an email
+      const { data, error: linkError } = await supabase.auth.admin.generateLink({
+        type: "invite",
+        email,
+        options: { redirectTo: Deno.env.get("FRONTEND_URL") || "https://boost-flow-insight.lovable.app" },
+      });
+
+      if (linkError) {
+        // If user already confirmed, try magic link instead
+        const { data: magicData, error: magicError } = await supabase.auth.admin.generateLink({
+          type: "magiclink",
+          email,
+          options: { redirectTo: Deno.env.get("FRONTEND_URL") || "https://boost-flow-insight.lovable.app" },
+        });
+
+        if (magicError) {
+          return new Response(JSON.stringify({ error: magicError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true, type: "magiclink", email }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, type: "invite", email }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Route: INVITE user (default POST)
     const { email, role = "viewer", full_name } = await req.json();
     if (!email || !["admin", "viewer"].includes(role)) {
