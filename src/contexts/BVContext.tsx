@@ -7,6 +7,7 @@ export interface BV {
   kleur: string | null;
   drempel_bedrag: number | null;
   actief: boolean | null;
+  exact_division_code: number | null;
 }
 
 interface BVContextType {
