@@ -148,7 +148,7 @@ export default function ExactImport() {
         bedrag: Math.abs(importModal.bedrag),
         omschrijving: modalOmschrijving,
         categorie: modalCategorie,
-        tegenpartij: importModal.factuurnummer ?? null,
+        tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer ?? null,
         bron: 'exact_import',
         ref_id: importModal.id,
         ref_type: 'invoice',
