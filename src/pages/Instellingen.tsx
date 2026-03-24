@@ -18,12 +18,19 @@ import { RefreshCw, Link2, Unlink, Loader2, CheckCircle2, ExternalLink, Settings
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
+interface ExactDivision {
+  Code: number;
+  Description: string;
+  CustomerName: string;
+}
+
 interface ExactToken {
   id: string;
   bv_id: string;
   division: number | null;
   expires_at: string;
   updated_at: string;
+  available_divisions: ExactDivision[] | null;
 }
 
 export default function Instellingen() {
