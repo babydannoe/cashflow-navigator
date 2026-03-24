@@ -200,10 +200,11 @@ export default function RecurringKosten() {
                 <SelectItem value="bunq-detectie">bunq-detectie</SelectItem>
               </SelectContent>
             </Select>
-            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe regel</Button>
-              </DialogTrigger>
+            {isAdmin && (
+              <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe regel</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nieuwe recurring regel</DialogTitle></DialogHeader>
                 <div className="space-y-4">
