@@ -51,6 +51,7 @@ const mockSuggestions: ReviewSuggestion[] = [
 
 export default function RecurringKosten() {
   const { bvs, selectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
