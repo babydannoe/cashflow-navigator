@@ -34,6 +34,7 @@ interface Dividend {
 
 export default function LeningenDividend() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [payments, setPayments] = useState<LoanPayment[]>([]);
   const [dividends, setDividends] = useState<Dividend[]>([]);
