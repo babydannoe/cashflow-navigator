@@ -202,9 +202,11 @@ export default function Facturen() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Facturen & Goedkeuringen</h1>
-        <Button onClick={() => { setNewInv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setAddOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Factuur toevoegen
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => { setNewInv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setAddOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Factuur toevoegen
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
