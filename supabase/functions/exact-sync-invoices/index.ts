@@ -215,16 +215,34 @@ Deno.serve(async (req) => {
         console.error(`AP sync error for ${currentBvId}:`, err);
       }
 
-      // ── Upsert in batches of 50 ──
+      // ── Upsert in batches of 50, preserving import_status ──
       const allInvoices = [...arRecords, ...apRecords];
       for (let i = 0; i < allInvoices.length; i += 50) {
         const batch = allInvoices.slice(i, i + 50);
-        const { error: upsertErr } = await supabase
-          .from("invoices")
-          .upsert(batch, { onConflict: "exact_id" });
+        // For each invoice, check if it already exists to avoid overwriting import_status
+        for (const inv of batch) {
+          const { data: existing } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("exact_id", inv.exact_id)
+            .maybeSingle();
 
-        if (upsertErr) {
-          console.error("Upsert error:", upsertErr);
+          if (existing) {
+            // Update only sync-relevant fields, preserve import_status
+            await supabase
+              .from("invoices")
+              .update({
+                bedrag: inv.bedrag,
+                vervaldatum: inv.vervaldatum,
+                status: inv.status,
+                laatste_sync: inv.laatste_sync,
+                factuurnummer: inv.factuurnummer,
+              })
+              .eq("exact_id", inv.exact_id);
+          } else {
+            // New invoice: insert with default import_status = 'pending'
+            await supabase.from("invoices").insert(inv);
+          }
         }
       }
 
