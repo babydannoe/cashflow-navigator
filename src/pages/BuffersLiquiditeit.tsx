@@ -36,6 +36,7 @@ interface LiqRow {
 
 export default function BuffersLiquiditeit() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [buffers, setBuffers] = useState<Buffer[]>([]);
   const [liqRows, setLiqRows] = useState<LiqRow[]>([]);
   const [loading, setLoading] = useState(true);
