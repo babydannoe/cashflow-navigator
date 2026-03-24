@@ -56,9 +56,9 @@ export default function Instellingen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exact_tokens')
-        .select('id, bv_id, division, expires_at, updated_at');
+        .select('id, bv_id, division, expires_at, updated_at, available_divisions');
       if (error) throw error;
-      return (data ?? []) as ExactToken[];
+      return (data ?? []) as unknown as ExactToken[];
     },
   });
 
