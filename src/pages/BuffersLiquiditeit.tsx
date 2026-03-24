@@ -161,6 +161,7 @@ export default function BuffersLiquiditeit() {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
