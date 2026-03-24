@@ -47,11 +47,12 @@ export function AppSidebar() {
 
   useEffect(() => {
     const fetchCount = async () => {
-      const { count } = await supabase
+      // Use raw filter to avoid type issues with new column
+      const { count } = await (supabase
         .from('invoices')
         .select('*', { count: 'exact', head: true })
-        .eq('bron', 'exact')
-        .eq('import_status' as any, 'pending');
+        .eq('bron', 'exact') as any)
+        .eq('import_status', 'pending');
       setPendingCount(count ?? 0);
     };
     fetchCount();
