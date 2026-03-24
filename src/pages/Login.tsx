@@ -11,12 +11,35 @@ import mrboostLogo from '@/assets/mrboost-logo.svg';
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const [loginMode, setLoginMode] = useState<'pin' | 'email'>('pin');
   const [loading, setLoading] = useState(false);
   const [mfaStep, setMfaStep] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
   const [factorId, setFactorId] = useState('');
   const [challengeId, setChallengeId] = useState('');
   const navigate = useNavigate();
+
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinCode !== '9999') {
+      toast.error('Ongeldige code');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: 'daan@mrboost.nl',
+      password: 'MrBoost9999!',
+    });
+    if (error) {
+      toast.error('Login mislukt: ' + error.message);
+      setLoading(false);
+      return;
+    }
+    toast.success('Ingelogd!');
+    navigate('/');
+    setLoading(false);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
