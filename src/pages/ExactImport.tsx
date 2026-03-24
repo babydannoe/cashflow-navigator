@@ -43,6 +43,7 @@ function castInvoice(row: any): Invoice {
 
 export default function ExactImport() {
   const { bvs } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const queryClient = useQueryClient();
   const [selectedBvId, setSelectedBvId] = useState<string>(bvs[0]?.id ?? '');
   const [activeTab, setActiveTab] = useState<'AR' | 'AP'>('AR');
