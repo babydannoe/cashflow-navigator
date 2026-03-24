@@ -281,7 +281,6 @@ export default function LeningenDividend() {
               </Button>
             </div>
           )}
-          </div>
 
           <Card>
             <CardContent className="p-0">
