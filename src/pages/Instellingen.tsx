@@ -324,7 +324,7 @@ export default function Instellingen() {
                           <p className="font-medium text-sm">{bv.naam}</p>
                           {token ? (
                             <p className="text-xs text-muted-foreground">
-                              Division: {token.division ?? '—'} · Laatste sync: {fmt(token.updated_at)}
+                               Division: {bv.exact_division_code ?? token.division ?? '—'} · Laatste sync: {fmt(token.updated_at)}
                             </p>
                           ) : null}
                         </div>
