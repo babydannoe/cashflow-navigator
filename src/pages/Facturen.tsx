@@ -53,6 +53,7 @@ type SortKey = 'factuurnummer' | 'bv_id' | 'type' | 'bedrag' | 'vervaldatum' | '
 
 export default function Facturen() {
   const { bvs, selectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
   const [loading, setLoading] = useState(true);
