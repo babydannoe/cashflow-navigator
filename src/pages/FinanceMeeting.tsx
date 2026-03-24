@@ -416,7 +416,7 @@ export default function FinanceMeeting() {
             return (
               <TableRow key={`${item.ref_id}-${idx}`}>
                 <TableCell className="w-8">
-                  {isSelectable && (
+                  {!isViewer && isSelectable && (
                     <Checkbox
                       checked={selectedIds.has(item.cashflow_item_id!)}
                       onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
