@@ -178,6 +178,7 @@ export type Database = {
         Row: {
           actief: boolean | null
           drempel_bedrag: number | null
+          exact_division_code: number | null
           id: string
           kleur: string | null
           naam: string
@@ -185,6 +186,7 @@ export type Database = {
         Insert: {
           actief?: boolean | null
           drempel_bedrag?: number | null
+          exact_division_code?: number | null
           id?: string
           kleur?: string | null
           naam: string
@@ -192,6 +194,7 @@ export type Database = {
         Update: {
           actief?: boolean | null
           drempel_bedrag?: number | null
+          exact_division_code?: number | null
           id?: string
           kleur?: string | null
           naam?: string
@@ -316,6 +319,7 @@ export type Database = {
       exact_tokens: {
         Row: {
           access_token: string
+          available_divisions: Json | null
           bv_id: string | null
           created_at: string | null
           division: number | null
@@ -326,6 +330,7 @@ export type Database = {
         }
         Insert: {
           access_token: string
+          available_divisions?: Json | null
           bv_id?: string | null
           created_at?: string | null
           division?: number | null
@@ -336,6 +341,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          available_divisions?: Json | null
           bv_id?: string | null
           created_at?: string | null
           division?: number | null

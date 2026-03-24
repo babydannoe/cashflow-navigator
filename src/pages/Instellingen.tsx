@@ -12,10 +12,17 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { RefreshCw, Link2, Unlink, Loader2, CheckCircle2, Construction, ExternalLink } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RefreshCw, Link2, Unlink, Loader2, CheckCircle2, ExternalLink, Settings2 } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+interface ExactDivision {
+  Code: number;
+  Description: string;
+  CustomerName: string;
+}
 
 interface ExactToken {
   id: string;
@@ -23,6 +30,7 @@ interface ExactToken {
   division: number | null;
   expires_at: string;
   updated_at: string;
+  available_divisions: ExactDivision[] | null;
 }
 
 export default function Instellingen() {
@@ -48,9 +56,9 @@ export default function Instellingen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('exact_tokens')
-        .select('id, bv_id, division, expires_at, updated_at');
+        .select('id, bv_id, division, expires_at, updated_at, available_divisions');
       if (error) throw error;
-      return (data ?? []) as ExactToken[];
+      return (data ?? []) as unknown as ExactToken[];
     },
   });
 
@@ -269,14 +277,83 @@ export default function Instellingen() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="bv-config" className="mt-4">
+        <TabsContent value="bv-config" className="mt-4 space-y-4">
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Construction className="h-10 w-10 text-muted-foreground mb-3" />
-              <p className="font-medium">BV Configuratie</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Hier kun je straks BV-drempels, kleuren en andere instellingen beheren.
-              </p>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings2 className="h-5 w-5 text-primary" />
+                Exact divisie per BV
+              </CardTitle>
+              <CardDescription>
+                Selecteer welke Exact Online divisie bij elke BV hoort. Laat leeg als de BV geen eigen Exact-administratie heeft.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {bvs.map(bv => {
+                // Collect all available divisions from any token
+                const allDivisions: ExactDivision[] = [];
+                const seen = new Set<number>();
+                tokens.forEach(t => {
+                  (t.available_divisions ?? []).forEach(d => {
+                    if (!seen.has(d.Code)) {
+                      seen.add(d.Code);
+                      allDivisions.push(d);
+                    }
+                  });
+                });
+
+                const currentValue = (bv as any).exact_division_code;
+
+                return (
+                  <div
+                    key={bv.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-3 h-3 rounded-full shrink-0"
+                        style={{ backgroundColor: bv.kleur || 'hsl(var(--muted-foreground))' }}
+                      />
+                      <p className="font-medium text-sm">{bv.naam}</p>
+                    </div>
+                    <Select
+                      value={currentValue ? String(currentValue) : "none"}
+                      onValueChange={async (val) => {
+                        const divCode = val === "none" ? null : parseInt(val);
+                        const { error } = await supabase
+                          .from('bv')
+                          .update({ exact_division_code: divCode } as any)
+                          .eq('id', bv.id);
+                        if (error) {
+                          toast.error('Opslaan mislukt: ' + error.message);
+                        } else {
+                          toast.success(`Divisie ${divCode ? divCode : '(geen)'} opgeslagen voor ${bv.naam}`);
+                          queryClient.invalidateQueries({ queryKey: ['exact-tokens'] });
+                          // Force BV context refresh
+                          window.dispatchEvent(new Event('bv-division-updated'));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[280px]">
+                        <SelectValue placeholder="Geen divisie" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Geen divisie</SelectItem>
+                        {allDivisions.map(d => (
+                          <SelectItem key={d.Code} value={String(d.Code)}>
+                            {d.Code} — {d.Description || d.CustomerName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                );
+              })}
+              {tokens.length === 0 && (
+                <p className="text-sm text-muted-foreground py-4">
+                  Koppel eerst minstens één BV met Exact Online om divisies te kunnen toewijzen.
+                </p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
