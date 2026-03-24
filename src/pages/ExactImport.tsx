@@ -279,25 +279,29 @@ export default function ExactImport() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-green-600 border-green-500/30 hover:bg-green-500/10"
-                              onClick={() => openImportModal(inv)}
-                            >
-                              <Check className="h-3.5 w-3.5 mr-1" /> Importeren
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-muted-foreground"
-                              onClick={() => skipMutation.mutate(inv.id)}
-                              disabled={inv.import_status === 'skipped'}
-                            >
-                              <SkipForward className="h-3.5 w-3.5 mr-1" /> Niet importeren
-                            </Button>
-                          </div>
+                          {isViewer ? (
+                            <span className="text-xs text-muted-foreground">Alleen admins kunnen importeren</span>
+                          ) : (
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-green-600 border-green-500/30 hover:bg-green-500/10"
+                                onClick={() => openImportModal(inv)}
+                              >
+                                <Check className="h-3.5 w-3.5 mr-1" /> Importeren
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-muted-foreground"
+                                onClick={() => skipMutation.mutate(inv.id)}
+                                disabled={inv.import_status === 'skipped'}
+                              >
+                                <SkipForward className="h-3.5 w-3.5 mr-1" /> Niet importeren
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
