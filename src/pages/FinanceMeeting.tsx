@@ -435,24 +435,26 @@ export default function FinanceMeeting() {
                   {type === 'out' ? '−' : '+'} {fmt(item.bedrag)}
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
-                    {isSelectable && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
-                        onClick={async () => {
-                          if (!item.cashflow_item_id) return;
-                          await goedkeurenBulk([item.cashflow_item_id]);
-                        }}
-                        title="Goedkeuren voor betaling">
-                        <Check className="h-3.5 w-3.5" />
+                  {!isViewer && (
+                    <div className="flex gap-1">
+                      {isSelectable && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                          onClick={async () => {
+                            if (!item.cashflow_item_id) return;
+                            await goedkeurenBulk([item.cashflow_item_id]);
+                          }}
+                          title="Goedkeuren voor betaling">
+                          <Check className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
+                        <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openDrawer(item)} title="Bewerken">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             );
