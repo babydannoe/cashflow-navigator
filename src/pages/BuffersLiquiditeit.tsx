@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +36,7 @@ interface LiqRow {
 
 export default function BuffersLiquiditeit() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [buffers, setBuffers] = useState<Buffer[]>([]);
   const [liqRows, setLiqRows] = useState<LiqRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,10 +126,11 @@ export default function BuffersLiquiditeit() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Buffer beheer</CardTitle>
-          <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe buffer</Button>
-            </DialogTrigger>
+          {isAdmin && (
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe buffer</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Nieuwe buffer toevoegen</DialogTitle></DialogHeader>
               <div className="space-y-4">
@@ -158,6 +161,7 @@ export default function BuffersLiquiditeit() {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -182,8 +186,8 @@ export default function BuffersLiquiditeit() {
                   <TableCell className="text-right">{fmt(buf.bedrag || 0)}</TableCell>
                   <TableCell>{bvs.find(b => b.id === buf.bv_id)?.naam || '—'}</TableCell>
                   <TableCell>{buf.prioriteit}</TableCell>
-                  <TableCell><Switch checked={!!buf.actief} onCheckedChange={() => toggleActief(buf)} /></TableCell>
-                  <TableCell><Button variant="ghost" size="icon" onClick={() => deleteBuffer(buf)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                  <TableCell><Switch checked={!!buf.actief} onCheckedChange={() => toggleActief(buf)} disabled={!isAdmin} /></TableCell>
+                  <TableCell>{isAdmin && <Button variant="ghost" size="icon" onClick={() => deleteBuffer(buf)}><Trash2 className="h-4 w-4 text-destructive" /></Button>}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

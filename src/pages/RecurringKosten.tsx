@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,6 +51,7 @@ const mockSuggestions: ReviewSuggestion[] = [
 
 export default function RecurringKosten() {
   const { bvs, selectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [rules, setRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -198,10 +200,11 @@ export default function RecurringKosten() {
                 <SelectItem value="bunq-detectie">bunq-detectie</SelectItem>
               </SelectContent>
             </Select>
-            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe regel</Button>
-              </DialogTrigger>
+            {isAdmin && (
+              <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm"><Plus className="mr-2 h-4 w-4" />Nieuwe regel</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader><DialogTitle>Nieuwe recurring regel</DialogTitle></DialogHeader>
                 <div className="space-y-4">
@@ -232,6 +235,7 @@ export default function RecurringKosten() {
                 </div>
               </DialogContent>
             </Dialog>
+            )}
           </div>
 
           <Card>
@@ -296,13 +300,15 @@ export default function RecurringKosten() {
                           <TableCell>{rule.frequentie}</TableCell>
                           <TableCell>{rule.verwachte_betaaldag || '—'}</TableCell>
                           <TableCell><Badge variant="secondary">{rule.bron}</Badge></TableCell>
-                          <TableCell><Switch checked={!!rule.actief} onCheckedChange={() => toggleActief(rule)} /></TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => startEdit(rule)}><Pencil className="h-4 w-4" /></Button>
-                              <Button variant="ghost" size="icon" onClick={() => deleteRule(rule)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </div>
-                          </TableCell>
+                          <TableCell><Switch checked={!!rule.actief} onCheckedChange={() => toggleActief(rule)} disabled={!isAdmin} /></TableCell>
+                          {isAdmin && (
+                            <TableCell>
+                              <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => startEdit(rule)}><Pencil className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => deleteRule(rule)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}

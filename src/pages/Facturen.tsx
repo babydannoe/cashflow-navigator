@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Invoice {
   id: string;
@@ -52,6 +53,7 @@ type SortKey = 'factuurnummer' | 'bv_id' | 'type' | 'bedrag' | 'vervaldatum' | '
 
 export default function Facturen() {
   const { bvs, selectedBVId } = useBV();
+  const { isAdmin } = useUserRole();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,9 +202,11 @@ export default function Facturen() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Facturen & Goedkeuringen</h1>
-        <Button onClick={() => { setNewInv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setAddOpen(true); }}>
-          <Plus className="mr-2 h-4 w-4" /> Factuur toevoegen
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => { setNewInv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setAddOpen(true); }}>
+            <Plus className="mr-2 h-4 w-4" /> Factuur toevoegen
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -238,7 +242,7 @@ export default function Facturen() {
       </div>
 
       {/* Bulk actions */}
-      {selected.size > 0 && (
+      {selected.size > 0 && isAdmin && (
         <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-lg px-4 py-2.5">
           <span className="text-sm font-medium">{selected.size} geselecteerd</span>
           <Button size="sm" variant="outline" onClick={() => bulkUpdateStatus('ter_goedkeuring')}>

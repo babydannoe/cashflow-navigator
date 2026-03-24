@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Plus, Trash2, Pencil, Check, X, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -39,6 +41,7 @@ const STATUSES = ['lead', 'offerte', 'handshake', 'contract'];
 
 export default function MTPipeline() {
   const { bvs, selectedBVId } = useBV();
+  const { isAdmin, isViewer } = useUserRole();
   const [items, setItems] = useState<PipelineItem[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +51,6 @@ export default function MTPipeline() {
   const [sortAsc, setSortAsc] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
 
-  // New item form
   const [form, setForm] = useState({
     projectnaam: '', bv_id: '', bedrag: '', kans: 50, verwachte_week: '', status: 'lead', opmerkingen: '',
   });
@@ -99,6 +101,7 @@ export default function MTPipeline() {
   };
 
   const startEdit = (item: PipelineItem) => {
+    if (isViewer) return;
     setEditId(item.id);
     setEditData({ ...item });
   };
@@ -168,38 +171,40 @@ export default function MTPipeline() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-foreground">MT Pipeline</h1>
 
-      {/* Add form */}
-      <Card>
-        <CardHeader><CardTitle className="text-base">Nieuw pipeline-item</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div><Label>Projectnaam</Label><Input value={form.projectnaam} onChange={e => setForm(f => ({ ...f, projectnaam: e.target.value }))} /></div>
-            <div><Label>BV</Label>
-              <Select value={form.bv_id} onValueChange={v => setForm(f => ({ ...f, bv_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Kies BV" /></SelectTrigger>
-                <SelectContent>{bvs.map(bv => <SelectItem key={bv.id} value={bv.id}>{bv.naam}</SelectItem>)}</SelectContent>
-              </Select>
+      {/* Add form - hidden for viewers */}
+      {isAdmin && (
+        <Card>
+          <CardHeader><CardTitle className="text-base">Nieuw pipeline-item</CardTitle></CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div><Label>Projectnaam</Label><Input value={form.projectnaam} onChange={e => setForm(f => ({ ...f, projectnaam: e.target.value }))} /></div>
+              <div><Label>BV</Label>
+                <Select value={form.bv_id} onValueChange={v => setForm(f => ({ ...f, bv_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Kies BV" /></SelectTrigger>
+                  <SelectContent>{bvs.map(bv => <SelectItem key={bv.id} value={bv.id}>{bv.naam}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div><Label>Bedrag (€)</Label><Input type="number" value={form.bedrag} onChange={e => setForm(f => ({ ...f, bedrag: e.target.value }))} /></div>
+              <div>
+                <Label>Kans: {form.kans}%</Label>
+                <Slider value={[form.kans]} onValueChange={v => setForm(f => ({ ...f, kans: v[0] }))} max={100} step={5} className="mt-2" />
+              </div>
+              <div><Label>Verwachte week</Label><Input type="date" value={form.verwachte_week} onChange={e => setForm(f => ({ ...f, verwachte_week: e.target.value }))} /></div>
+              <div><Label>Status</Label>
+                <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2"><Label>Opmerkingen</Label><Textarea value={form.opmerkingen} onChange={e => setForm(f => ({ ...f, opmerkingen: e.target.value }))} rows={2} /></div>
+              <div className="flex items-end gap-4">
+                <div className="text-sm text-muted-foreground">Verwachte waarde: <span className="font-bold text-foreground">{fmt(expectedValue)}</span></div>
+                <Button onClick={addItem}><Plus className="mr-2 h-4 w-4" />Toevoegen</Button>
+              </div>
             </div>
-            <div><Label>Bedrag (€)</Label><Input type="number" value={form.bedrag} onChange={e => setForm(f => ({ ...f, bedrag: e.target.value }))} /></div>
-            <div>
-              <Label>Kans: {form.kans}%</Label>
-              <Slider value={[form.kans]} onValueChange={v => setForm(f => ({ ...f, kans: v[0] }))} max={100} step={5} className="mt-2" />
-            </div>
-            <div><Label>Verwachte week</Label><Input type="date" value={form.verwachte_week} onChange={e => setForm(f => ({ ...f, verwachte_week: e.target.value }))} /></div>
-            <div><Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm(f => ({ ...f, status: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{STATUSES.map(s => <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2"><Label>Opmerkingen</Label><Textarea value={form.opmerkingen} onChange={e => setForm(f => ({ ...f, opmerkingen: e.target.value }))} rows={2} /></div>
-            <div className="flex items-end gap-4">
-              <div className="text-sm text-muted-foreground">Verwachte waarde: <span className="font-bold text-foreground">{fmt(expectedValue)}</span></div>
-              <Button onClick={addItem}><Plus className="mr-2 h-4 w-4" />Toevoegen</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4 items-center">
@@ -232,7 +237,7 @@ export default function MTPipeline() {
                   <TableHead>Expected</TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort('verwachte_week')}>Week<ArrowUpDown className="inline h-3 w-3 ml-1" /></TableHead>
                   <TableHead className="cursor-pointer" onClick={() => toggleSort('status')}>Status<ArrowUpDown className="inline h-3 w-3 ml-1" /></TableHead>
-                  <TableHead>Acties</TableHead>
+                  {isAdmin && <TableHead>Acties</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -267,7 +272,7 @@ export default function MTPipeline() {
                   }
 
                   return (
-                    <TableRow key={item.id} className="cursor-pointer hover:bg-accent/30" onClick={() => startEdit(item)}>
+                    <TableRow key={item.id} className={`${isAdmin ? 'cursor-pointer' : ''} hover:bg-accent/30`} onClick={() => isAdmin && startEdit(item)}>
                       <TableCell className="font-medium">{item.projectnaam}</TableCell>
                       <TableCell>{bvNaam}</TableCell>
                       <TableCell className="text-right">{fmt(item.bedrag || 0)}</TableCell>
@@ -275,12 +280,14 @@ export default function MTPipeline() {
                       <TableCell className="text-right">{fmt(ev)}</TableCell>
                       <TableCell>{item.verwachte_week || '—'}</TableCell>
                       <TableCell><Badge className={statusColor(item.status || 'lead')}>{item.status}</Badge></TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => startEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => deleteItem(item)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin && (
+                        <TableCell onClick={e => e.stopPropagation()}>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => startEdit(item)}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteItem(item)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}
@@ -289,7 +296,7 @@ export default function MTPipeline() {
                   <TableCell className="text-right">{fmt(totaalBedrag)}</TableCell>
                   <TableCell></TableCell>
                   <TableCell className="text-right">{fmt(totaalExpected)}</TableCell>
-                  <TableCell colSpan={3}></TableCell>
+                  <TableCell colSpan={isAdmin ? 3 : 2}></TableCell>
                 </TableRow>
               </TableBody>
             </Table>

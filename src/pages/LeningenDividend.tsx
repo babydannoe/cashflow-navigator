@@ -4,6 +4,7 @@ import { nl } from 'date-fns/locale';
 import { Plus, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ interface Dividend {
 
 export default function LeningenDividend() {
   const { bvs } = useBV();
+  const { isAdmin } = useUserRole();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [payments, setPayments] = useState<LoanPayment[]>([]);
   const [dividends, setDividends] = useState<Dividend[]>([]);
@@ -185,11 +187,13 @@ export default function LeningenDividend() {
         </TabsList>
 
         <TabsContent value="leningen" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setNewLoan(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setLoanOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Lening toevoegen
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => { setNewLoan(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setLoanOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Lening toevoegen
+              </Button>
+            </div>
+          )}
 
           {loans.length === 0 ? (
             <Card><CardContent className="py-8 text-center text-muted-foreground">Geen leningen gevonden</CardContent></Card>
@@ -270,11 +274,13 @@ export default function LeningenDividend() {
         </TabsContent>
 
         <TabsContent value="dividend" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setNewDiv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setDivOpen(true); }}>
-              <Plus className="mr-2 h-4 w-4" /> Dividend plannen
-            </Button>
-          </div>
+          {isAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => { setNewDiv(n => ({ ...n, bv_id: bvs[0]?.id || '' })); setDivOpen(true); }}>
+                <Plus className="mr-2 h-4 w-4" /> Dividend plannen
+              </Button>
+            </div>
+          )}
 
           <Card>
             <CardContent className="p-0">
