@@ -34,6 +34,8 @@ interface Invoice {
   import_status: string | null;
   exact_id: string | null;
   bron: string | null;
+  counterparty_id: string | null;
+  counterparties: { id: string; naam: string } | null;
 }
 
 // We need to cast since types.ts doesn't have the new columns yet
@@ -66,7 +68,7 @@ export default function ExactImport() {
       if (!selectedBvId) return [];
       const { data, error } = await supabase
         .from('invoices')
-        .select('*')
+        .select('*, counterparties(id, naam)')
         .eq('bv_id', selectedBvId)
         .eq('type', activeTab)
         .eq('bron', 'exact')
@@ -146,7 +148,7 @@ export default function ExactImport() {
         bedrag: Math.abs(importModal.bedrag),
         omschrijving: modalOmschrijving,
         categorie: modalCategorie,
-        tegenpartij: importModal.factuurnummer ?? null,
+        tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer ?? null,
         bron: 'exact_import',
         ref_id: importModal.id,
         ref_type: 'invoice',
@@ -171,7 +173,7 @@ export default function ExactImport() {
         .eq('id', importModal.id);
       if (invError) throw invError;
 
-      return { tegenpartij: importModal.factuurnummer };
+      return { tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer };
     },
     onSuccess: (result) => {
       toast.success(`✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`);
@@ -262,7 +264,7 @@ export default function ExactImport() {
                       <TableRow key={inv.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
-                        <TableCell>{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell>{inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}</TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(inv.bedrag)}
                         </TableCell>
@@ -327,7 +329,7 @@ export default function ExactImport() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Tegenpartij</span>
-                  <p className="font-medium">{importModal.factuurnummer ?? '—'}</p>
+                  <p className="font-medium">{importModal.counterparties?.naam ?? importModal.factuurnummer ?? '—'}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Bedrag</span>
