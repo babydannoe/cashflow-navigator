@@ -173,7 +173,7 @@ export default function ExactImport() {
         .eq('id', importModal.id);
       if (invError) throw invError;
 
-      return { tegenpartij: importModal.factuurnummer };
+      return { tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer };
     },
     onSuccess: (result) => {
       toast.success(`✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`);
