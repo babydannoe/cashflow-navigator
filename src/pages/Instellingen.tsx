@@ -117,7 +117,9 @@ export default function Instellingen() {
       if (data.error) {
         toast.error(data.error);
       } else {
-        toast.success(`${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen gesynchroniseerd`);
+        const bvNaam = bvs.find(b => b.id === bvId)?.naam ?? bvId;
+        const divUsed = data.division_used ?? '?';
+        toast.success(`Synced ${bvNaam} met divisie ${divUsed} ✓ (${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen)`);
         queryClient.invalidateQueries({ queryKey: ['exact-tokens'] });
       }
     } catch (err) {
@@ -145,7 +147,8 @@ export default function Instellingen() {
         if (data.error) {
           toast.error(`${bv.naam}: ${data.error}`);
         } else {
-          toast.success(`${bv.naam}: ${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen gesynchroniseerd`);
+          const divUsed = data.division_used ?? '?';
+          toast.success(`Synced ${bv.naam} met divisie ${divUsed} ✓ (${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen)`);
         }
       } catch (err) {
         toast.error(`${bv.naam}: Sync mislukt`);
@@ -324,7 +327,7 @@ export default function Instellingen() {
                           <p className="font-medium text-sm">{bv.naam}</p>
                           {token ? (
                             <p className="text-xs text-muted-foreground">
-                              Division: {token.division ?? '—'} · Laatste sync: {fmt(token.updated_at)}
+                               Division: {bv.exact_division_code ?? token.division ?? '—'} · Laatste sync: {fmt(token.updated_at)}
                             </p>
                           ) : null}
                         </div>
