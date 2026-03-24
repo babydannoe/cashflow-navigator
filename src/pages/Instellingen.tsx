@@ -58,7 +58,7 @@ export default function Instellingen() {
   const hasAnyCoupled = tokens.length > 0;
 
   const handleKoppelen = (bvId: string) => {
-    window.location.href = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}`;
+    window.location.href = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}&apikey=${SUPABASE_KEY}`;
   };
 
   const handleSync = async (bvId: string) => {
