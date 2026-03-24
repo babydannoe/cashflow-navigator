@@ -68,7 +68,7 @@ export default function ExactImport() {
       if (!selectedBvId) return [];
       const { data, error } = await supabase
         .from('invoices')
-        .select('*')
+        .select('*, counterparties(id, naam)')
         .eq('bv_id', selectedBvId)
         .eq('type', activeTab)
         .eq('bron', 'exact')
