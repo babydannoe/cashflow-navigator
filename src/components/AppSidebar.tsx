@@ -43,6 +43,21 @@ export function AppSidebar() {
   const { bvs, selectedBVId, setSelectedBVId, selectedBV } = useBV();
   const { theme, toggleTheme } = useTheme();
   const { signOut } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('invoices')
+        .select('*', { count: 'exact', head: true })
+        .eq('bron', 'exact')
+        .eq('import_status' as any, 'pending');
+      setPendingCount(count ?? 0);
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border">
