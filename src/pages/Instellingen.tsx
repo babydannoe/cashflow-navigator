@@ -15,7 +15,7 @@ import {
 import { RefreshCw, Link2, Unlink, Loader2, CheckCircle2, Construction, ExternalLink } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 interface ExactToken {
   id: string;
@@ -58,7 +58,7 @@ export default function Instellingen() {
   const hasAnyCoupled = tokens.length > 0;
 
   const handleKoppelen = (bvId: string) => {
-    window.location.href = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}`;
+    window.location.href = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}&apikey=${SUPABASE_KEY}`;
   };
 
   const handleSync = async (bvId: string) => {
