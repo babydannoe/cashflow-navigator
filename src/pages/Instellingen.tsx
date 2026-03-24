@@ -117,7 +117,9 @@ export default function Instellingen() {
       if (data.error) {
         toast.error(data.error);
       } else {
-        toast.success(`${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen gesynchroniseerd`);
+        const bvNaam = bvs.find(b => b.id === bvId)?.naam ?? bvId;
+        const divUsed = data.division_used ?? '?';
+        toast.success(`Synced ${bvNaam} met divisie ${divUsed} ✓ (${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen)`);
         queryClient.invalidateQueries({ queryKey: ['exact-tokens'] });
       }
     } catch (err) {
