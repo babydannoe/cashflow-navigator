@@ -147,7 +147,8 @@ export default function Instellingen() {
         if (data.error) {
           toast.error(`${bv.naam}: ${data.error}`);
         } else {
-          toast.success(`${bv.naam}: ${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen gesynchroniseerd`);
+          const divUsed = data.division_used ?? '?';
+          toast.success(`Synced ${bv.naam} met divisie ${divUsed} ✓ (${(data.synced_ar ?? 0) + (data.synced_ap ?? 0)} facturen)`);
         }
       } catch (err) {
         toast.error(`${bv.naam}: Sync mislukt`);

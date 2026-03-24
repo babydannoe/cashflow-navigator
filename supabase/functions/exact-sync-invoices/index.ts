@@ -233,6 +233,7 @@ Deno.serve(async (req) => {
         success: true,
         synced_ar: arRecords.length,
         synced_ap: apRecords.length,
+        division_used: division,
         synced_at: new Date().toISOString(),
       });
     }
