@@ -34,6 +34,8 @@ interface Invoice {
   import_status: string | null;
   exact_id: string | null;
   bron: string | null;
+  counterparty_id: string | null;
+  counterparties: { id: string; naam: string } | null;
 }
 
 // We need to cast since types.ts doesn't have the new columns yet
