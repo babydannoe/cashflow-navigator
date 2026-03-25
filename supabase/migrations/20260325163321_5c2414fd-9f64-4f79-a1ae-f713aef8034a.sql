@@ -1,0 +1,1 @@
+UPDATE invoices SET status = 'betaald' WHERE factuurnummer = '26600001' AND bv_id = (SELECT id FROM bv WHERE naam ILIKE '%holding%');
