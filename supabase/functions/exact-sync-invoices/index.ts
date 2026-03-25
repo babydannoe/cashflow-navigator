@@ -196,7 +196,7 @@ Deno.serve(async (req) => {
       // ── Purchase Entries (AP) ──
       let apRecords: any[] = [];
       try {
-        const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}'&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=100`;
+        const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}' and Status ne 50&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=100`;
         const apItems = await fetchExactPaginated(apUrl, access_token);
 
         apRecords = apItems.map((item: any) => ({
