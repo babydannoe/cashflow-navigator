@@ -19,11 +19,17 @@ const STATUS_MAP_AR: Record<number, string> = {
   10: "ter_goedkeuring",
   20: "open",
   50: "betaald",
+  90: "betaald",
 };
 
 const STATUS_MAP_AP: Record<number, string> = {
+  5:  "concept",
+  10: "ter_goedkeuring",
   20: "open",
+  30: "open",
+  40: "open",
   50: "betaald",
+  90: "betaald",
 };
 
 async function getValidToken(supabase: any, bv_id: string) {
@@ -172,7 +178,7 @@ Deno.serve(async (req) => {
       // ── Sales Invoices (AR) ──
       let arRecords: any[] = [];
       try {
-        const arUrl = `${EXACT_BASE}/v1/${division}/salesinvoice/SalesInvoices?$filter=InvoiceDate gt datetime'${sinceDate}' and Status ne 50&$select=InvoiceID,InvoiceNumber,OrderedByName,AmountDC,InvoiceDate,DueDate,Status&$orderby=InvoiceDate desc&$top=100`;
+        const arUrl = `${EXACT_BASE}/v1/${division}/salesinvoice/SalesInvoices?$filter=InvoiceDate gt datetime'${sinceDate}' and Status lt 50&$select=InvoiceID,InvoiceNumber,OrderedByName,AmountDC,InvoiceDate,DueDate,Status&$orderby=InvoiceDate desc&$top=100`;
         const arItems = await fetchExactPaginated(arUrl, access_token);
 
         arRecords = arItems.map((item: any) => ({
@@ -196,7 +202,7 @@ Deno.serve(async (req) => {
       // ── Purchase Entries (AP) ──
       let apRecords: any[] = [];
       try {
-        const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}' and Status ne 50&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=100`;
+        const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}' and Status lt 50&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=100`;
         const apItems = await fetchExactPaginated(apUrl, access_token);
 
         apRecords = apItems.map((item: any) => ({
@@ -212,7 +218,7 @@ Deno.serve(async (req) => {
           status: STATUS_MAP_AP[item.Status] ?? "ter_goedkeuring",
           laatste_sync: new Date().toISOString(),
         }));
-        apRecords = apRecords.filter(r => r.status !== 'betaald');
+        apRecords = apRecords.filter(r => r.status !== 'betaald' && r.status !== 'concept');
       } catch (err) {
         console.error(`AP sync error for ${currentBvId}:`, err);
       }
