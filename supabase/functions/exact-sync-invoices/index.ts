@@ -188,6 +188,7 @@ Deno.serve(async (req) => {
           status: STATUS_MAP_AR[item.Status] ?? "ter_goedkeuring",
           laatste_sync: new Date().toISOString(),
         }));
+        arRecords = arRecords.filter(r => r.status !== 'betaald');
       } catch (err) {
         console.error(`AR sync error for ${currentBvId}:`, err);
       }
