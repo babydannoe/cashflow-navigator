@@ -72,6 +72,7 @@ export default function ExactImport() {
         .eq('bv_id', selectedBvId)
         .eq('type', activeTab)
         .eq('bron', 'exact')
+        .neq('status', 'betaald')
         .order('vervaldatum', { ascending: true });
       if (error) throw error;
       // Filter client-side for import_status since column may not be in generated types yet

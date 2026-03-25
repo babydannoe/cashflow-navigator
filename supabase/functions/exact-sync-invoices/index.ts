@@ -212,6 +212,7 @@ Deno.serve(async (req) => {
           status: STATUS_MAP_AP[item.Status] ?? "ter_goedkeuring",
           laatste_sync: new Date().toISOString(),
         }));
+        apRecords = apRecords.filter(r => r.status !== 'betaald');
       } catch (err) {
         console.error(`AP sync error for ${currentBvId}:`, err);
       }
