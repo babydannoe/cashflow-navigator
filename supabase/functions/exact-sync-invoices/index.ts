@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
       // ── Sales Invoices (AR) ──
       let arRecords: any[] = [];
       try {
-        const arUrl = `${EXACT_BASE}/v1/${division}/salesinvoice/SalesInvoices?$filter=InvoiceDate gt datetime'${sinceDate}'&$select=InvoiceID,InvoiceNumber,OrderedByName,AmountDC,InvoiceDate,DueDate,Status&$orderby=InvoiceDate desc&$top=100`;
+        const arUrl = `${EXACT_BASE}/v1/${division}/salesinvoice/SalesInvoices?$filter=InvoiceDate gt datetime'${sinceDate}' and Status ne 50&$select=InvoiceID,InvoiceNumber,OrderedByName,AmountDC,InvoiceDate,DueDate,Status&$orderby=InvoiceDate desc&$top=100`;
         const arItems = await fetchExactPaginated(arUrl, access_token);
 
         arRecords = arItems.map((item: any) => ({
