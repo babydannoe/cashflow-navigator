@@ -83,9 +83,35 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
       setTegenpartij(item.tegenpartij || '');
       setBvId(item.bv_id || '');
       setType(item.type === 'in' ? 'in' : 'out');
-      setOpmerking('');
     }
   }, [item, isNew, open, bvs]);
+
+  // Load opmerking from DB when opening existing item
+  useEffect(() => {
+    if (isNew || !item || !open) return;
+
+    const laadOpmerking = async () => {
+      if (item.cashflow_item_id) {
+        const { data } = await supabase
+          .from('cashflow_items')
+          .select('opmerking')
+          .eq('id', item.cashflow_item_id)
+          .maybeSingle();
+        setOpmerking((data as any)?.opmerking || '');
+      } else if (item.ref_type === 'invoice' && item.ref_id) {
+        const { data } = await supabase
+          .from('invoices')
+          .select('opmerking')
+          .eq('id', item.ref_id)
+          .maybeSingle();
+        setOpmerking((data as any)?.opmerking || '');
+      } else {
+        setOpmerking('');
+      }
+    };
+
+    laadOpmerking();
+  }, [item?.cashflow_item_id, item?.ref_id, open, isNew]);
 
   const handleSave = async () => {
     if (!bvId || !bedrag) {
