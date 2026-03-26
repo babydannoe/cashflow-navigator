@@ -636,7 +636,11 @@ export default function ExactImport() {
                 </div>
               </div>
 
-              {importMode === 'betaald' ? (
+              {importMode === 'recurring' ? (
+                <p className="text-sm text-muted-foreground">
+                  Deze factuur wordt gemarkeerd als recurring. Hij verdwijnt uit de inbox en is zichtbaar onder Recurring Kosten → Exact Online.
+                </p>
+              ) : importMode === 'betaald' ? (
                 <p className="text-sm text-muted-foreground">
                   Weet je zeker dat deze factuur al betaald is? Er wordt een historisch cashflow-item aangemaakt en de factuur verdwijnt uit de inbox.
                 </p>
