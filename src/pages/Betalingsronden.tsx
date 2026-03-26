@@ -259,25 +259,25 @@ export default function Betalingsronden() {
   };
 
   const verwijderCI = async (id: string) => {
-    await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+    await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
     await supabase.from('audit_log').insert({
-      tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
-      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+      tabel: 'cashflow_items', actie: 'status → betaald (verwijderd uit betalingsronde)',
+      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
     });
-    toast.success('Post verwijderd uit betalingsronde');
+    toast.success('Post verplaatst naar historiek');
     fetchData();
   };
 
   const verwijderCIBulk = async () => {
     const ids = Array.from(selectedCIIds);
     for (const id of ids) {
-      await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+      await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
       await supabase.from('audit_log').insert({
-        tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
-        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+        tabel: 'cashflow_items', actie: 'status → betaald (verwijderd uit betalingsronde)',
+        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
       });
     }
-    toast.success(`${ids.length} posten verwijderd uit betalingsronde`);
+    toast.success(`${ids.length} posten verplaatst naar historiek`);
     setSelectedCIIds(new Set());
     fetchData();
   };
@@ -386,8 +386,8 @@ export default function Betalingsronden() {
                     <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
                       <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={verwijderCIBulk}>
-                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen ({selectedCIIds.size})
+                    <Button size="sm" variant="outline" className="text-muted-foreground" onClick={verwijderCIBulk}>
+                      <ArrowRight className="h-3.5 w-3.5 mr-1" /> Naar historiek ({selectedCIIds.size})
                     </Button>
                   </div>
                 )}
@@ -453,9 +453,9 @@ export default function Betalingsronden() {
                                 onClick={() => markeerBetaald(item.id)}>
                                 <Check className="h-3.5 w-3.5 mr-1" /> Betaald
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive"
-                                onClick={() => verwijderCI(item.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
+                              <Button size="sm" variant="ghost" className="h-7 text-muted-foreground"
+                                onClick={() => verwijderCI(item.id)} title="Naar historiek">
+                                <ArrowRight className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
