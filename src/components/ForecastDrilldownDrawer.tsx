@@ -135,7 +135,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           tegenpartij,
           bron: 'handmatig',
           ref_type: 'handmatig',
-        });
+          opmerking: opmerking || null,
+        } as any);
         if (error) throw error;
         toast.success('Nieuwe post toegevoegd');
       } else if (item?.ref_type === 'invoice' && item?.ref_id) {
