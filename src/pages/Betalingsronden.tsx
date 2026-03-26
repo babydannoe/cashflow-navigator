@@ -452,6 +452,11 @@ export default function Betalingsronden() {
                           </TableRow>
                         );
                       })}
+                      <TableRow className="bg-muted/50 font-medium border-t-2">
+                        <TableCell colSpan={3} className="text-sm">Totaal ({invoices.length} facturen)</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmt(invoices.reduce((s, i) => s + i.bedrag, 0))}</TableCell>
+                        <TableCell />
+                      </TableRow>
                     </TableBody>
                   </Table>
                   {isAdmin && selected.size > 0 && (
