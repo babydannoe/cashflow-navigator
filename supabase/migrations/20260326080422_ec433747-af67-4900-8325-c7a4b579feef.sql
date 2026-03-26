@@ -1,0 +1,1 @@
+DELETE FROM invoices WHERE laatste_sync IN ('2026-03-26 08:02:50.192+00', '2026-03-26 08:02:50.191+00');
