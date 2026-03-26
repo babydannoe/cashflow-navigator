@@ -17,8 +17,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward, X } from 'lucide-react';
+import {
+  RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, X,
+  ArrowUpDown, ArrowUp, ArrowDown, Search,
+} from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -35,16 +39,16 @@ interface Invoice {
   exact_id: string | null;
   bron: string | null;
   counterparty_id: string | null;
-  boekingsdatum?: string | null;
   aangemaakt_in_exact?: string | null;
   counterparties: { id: string; naam: string } | null;
   _suggestRecurring?: boolean;
 }
 
-// We need to cast since types.ts doesn't have the new columns yet
 function castInvoice(row: any): Invoice {
   return row as Invoice;
 }
+
+type SortField = 'aangemaakt_in_exact' | 'tegenpartij' | 'bedrag' | 'vervaldatum';
 
 export default function ExactImport() {
   const { bvs } = useBV();
@@ -62,7 +66,14 @@ export default function ExactImport() {
   const [modalCategorie, setModalCategorie] = useState('');
   const [modalWeek, setModalWeek] = useState<Date | undefined>();
 
-  // Set selected BV when bvs load
+  // Sort, filter, selection, bulk state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [sortField, setSortField] = useState<SortField>('aangemaakt_in_exact');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [zoekterm, setZoekterm] = useState('');
+  const [bulkMode, setBulkMode] = useState<'forecast' | 'recurring' | 'betaald' | 'al_in_forecast' | null>(null);
+  const [bulkWeek, setBulkWeek] = useState<Date>(startOfISOWeek(new Date()));
+
   if (!selectedBvId && bvs.length > 0) {
     setSelectedBvId(bvs[0].id);
   }
@@ -81,7 +92,6 @@ export default function ExactImport() {
         .order('vervaldatum', { ascending: true });
       if (error) throw error;
 
-      // Haal recurring rules op voor matching
       const { data: recurringRules } = await supabase
         .from('recurring_rules')
         .select('omschrijving, bv_id')
@@ -101,6 +111,131 @@ export default function ExactImport() {
     },
     enabled: !!selectedBvId,
   });
+
+  // Sorted & filtered list
+  const gesorteerdeFacturen = useMemo(() => {
+    let lijst = [...invoices];
+
+    if (zoekterm.trim()) {
+      const z = zoekterm.toLowerCase();
+      lijst = lijst.filter(inv =>
+        (inv.counterparties?.naam ?? '').toLowerCase().includes(z) ||
+        (inv.factuurnummer ?? '').toLowerCase().includes(z)
+      );
+    }
+
+    lijst.sort((a, b) => {
+      let va: any, vb: any;
+      if (sortField === 'tegenpartij') {
+        va = (a.counterparties?.naam ?? a.factuurnummer ?? '').toLowerCase();
+        vb = (b.counterparties?.naam ?? b.factuurnummer ?? '').toLowerCase();
+      } else if (sortField === 'bedrag') {
+        va = a.bedrag; vb = b.bedrag;
+      } else if (sortField === 'vervaldatum') {
+        va = a.vervaldatum ?? ''; vb = b.vervaldatum ?? '';
+      } else {
+        va = a.aangemaakt_in_exact ?? ''; vb = b.aangemaakt_in_exact ?? '';
+      }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return lijst;
+  }, [invoices, sortField, sortDir, zoekterm]);
+
+  // Sort helpers
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === 'asc'
+      ? <ArrowUp className="h-3 w-3 ml-1" />
+      : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
+  // Selection helpers
+  const allSelected = gesorteerdeFacturen.length > 0 && gesorteerdeFacturen.every(inv => selectedIds.has(inv.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) setSelectedIds(new Set());
+    else setSelectedIds(new Set(gesorteerdeFacturen.map(inv => inv.id)));
+  };
+
+  // Bulk action
+  const uitvoerenBulk = async (mode: 'forecast' | 'betaald' | 'recurring' | 'al_in_forecast', week?: Date) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    const selectedInvoices = gesorteerdeFacturen.filter(inv => ids.includes(inv.id));
+
+    for (const inv of selectedInvoices) {
+      if (mode === 'al_in_forecast') {
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', imported_at: new Date().toISOString() } as any)
+          .eq('id', inv.id);
+      } else if (mode === 'betaald') {
+        await supabase.from('cashflow_items').insert({
+          bv_id: inv.bv_id,
+          week: format(startOfISOWeek(new Date(inv.vervaldatum ?? new Date())), 'yyyy-MM-dd'),
+          type: inv.type === 'AR' ? 'in' : 'out',
+          bedrag: Math.abs(inv.bedrag),
+          omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
+          categorie: inv.type === 'AR' ? 'Omzet' : 'Kosten',
+          bron: 'exact_import', ref_id: inv.id, ref_type: 'invoice', status: 'betaald',
+        });
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .eq('id', inv.id);
+      } else if (mode === 'forecast' && week) {
+        const cfItem = {
+          bv_id: inv.bv_id,
+          week: format(week, 'yyyy-MM-dd'),
+          type: inv.type === 'AR' ? 'in' : 'out',
+          bedrag: Math.abs(inv.bedrag),
+          omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
+          categorie: inv.type === 'AR' ? 'Omzet' : 'Kosten',
+          tegenpartij: inv.counterparties?.naam ?? null,
+          bron: 'exact_import', ref_id: inv.id, ref_type: 'invoice', status: 'actief',
+        };
+        const { data: cfData } = await supabase.from('cashflow_items').insert(cfItem).select('id').single();
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', imported_at: new Date().toISOString(), forecast_item_id: cfData?.id } as any)
+          .eq('id', inv.id);
+      } else if (mode === 'recurring') {
+        await supabase.from('recurring_rules').insert({
+          bv_id: inv.bv_id,
+          omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
+          bedrag: Math.abs(inv.bedrag),
+          frequentie: 'maandelijks',
+          categorie: 'Recurring kosten',
+          actief: true,
+          bron: 'exact_import',
+          verwachte_betaaldag: inv.vervaldatum ? new Date(inv.vervaldatum).getDate() : 1,
+        });
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .eq('id', inv.id);
+      }
+    }
+
+    toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} verwerkt`);
+    setSelectedIds(new Set());
+    setBulkMode(null);
+    queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
+  };
 
   const handleSync = async () => {
     setSyncing(true);
@@ -133,9 +268,7 @@ export default function ExactImport() {
   const openImportModal = (invoice: Invoice, mode: 'forecast' | 'recurring' | 'betaald') => {
     setImportModal(invoice);
     setImportMode(mode);
-    setModalOmschrijving(
-      invoice.counterparties?.naam ?? invoice.factuurnummer ?? ''
-    );
+    setModalOmschrijving(invoice.counterparties?.naam ?? invoice.factuurnummer ?? '');
     setModalCategorie(
       mode === 'recurring' ? 'Recurring kosten' : (invoice.type === 'AR' ? 'Omzet' : 'Kosten')
     );
@@ -148,28 +281,11 @@ export default function ExactImport() {
     }
   };
 
-  const skipMutation = useMutation({
-    mutationFn: async (invoiceId: string) => {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ import_status: 'skipped' } as any)
-        .eq('id', invoiceId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
-    },
-  });
-
   const alInForecastMutation = useMutation({
     mutationFn: async (invoiceId: string) => {
       const { error } = await supabase
         .from('invoices')
-        .update({
-          import_status: 'imported',
-          imported_at: new Date().toISOString(),
-        } as any)
+        .update({ import_status: 'imported', imported_at: new Date().toISOString() } as any)
         .eq('id', invoiceId);
       if (error) throw error;
     },
@@ -188,7 +304,6 @@ export default function ExactImport() {
       if (!importModal) throw new Error('Geen data');
 
       if (importMode === 'betaald') {
-        // Cashflow item aanmaken met status betaald — voor historiek
         await supabase.from('cashflow_items').insert({
           bv_id: importModal.bv_id,
           week: format(startOfISOWeek(new Date(importModal.vervaldatum ?? new Date())), 'yyyy-MM-dd'),
@@ -201,13 +316,11 @@ export default function ExactImport() {
           ref_type: 'invoice',
           status: 'betaald',
         });
-        // Factuur markeren als afgehandeld
         await supabase.from('invoices')
           .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
           .eq('id', importModal.id);
       } else if (importMode === 'recurring') {
         if (!modalWeek) throw new Error('Geen week geselecteerd');
-        // Voeg toe als recurring rule
         await supabase.from('recurring_rules').insert({
           bv_id: importModal.bv_id,
           omschrijving: modalOmschrijving,
@@ -220,11 +333,9 @@ export default function ExactImport() {
             ? new Date(importModal.vervaldatum).getDate()
             : 1,
         });
-        // Markeer ook als betaald in invoices
         await supabase.from('invoices')
           .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
           .eq('id', importModal.id);
-        // Maak een cashflow_item aan met status betaald voor de historiek
         await supabase.from('cashflow_items').insert({
           bv_id: importModal.bv_id,
           week: format(startOfISOWeek(modalWeek!), 'yyyy-MM-dd'),
@@ -238,7 +349,6 @@ export default function ExactImport() {
           status: 'betaald',
         });
       } else {
-        // Forecast-logica
         if (!modalWeek) throw new Error('Geen week geselecteerd');
         const cfItem = {
           bv_id: importModal.bv_id,
@@ -318,7 +428,7 @@ export default function ExactImport() {
       </div>
 
       {/* BV Selector */}
-      <Select value={selectedBvId} onValueChange={setSelectedBvId}>
+      <Select value={selectedBvId} onValueChange={(v) => { setSelectedBvId(v); setSelectedIds(new Set()); }}>
         <SelectTrigger className="w-64">
           <SelectValue placeholder="Selecteer BV" />
         </SelectTrigger>
@@ -335,7 +445,7 @@ export default function ExactImport() {
       </Select>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'AR' | 'AP')}>
+      <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'AR' | 'AP'); setSelectedIds(new Set()); }}>
         <TabsList>
           <TabsTrigger value="AR">Debiteuren (AR)</TabsTrigger>
           <TabsTrigger value="AP">Crediteuren (AP)</TabsTrigger>
@@ -360,106 +470,162 @@ export default function ExactImport() {
                   <p className="text-lg font-medium">Alle posten zijn beoordeeld ✓</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Factuurnummer</TableHead>
-                      <TableHead>Datum in Exact</TableHead>
-                      <TableHead>Toegevoegd in Exact</TableHead>
-                      <TableHead>Tegenpartij</TableHead>
-                      <TableHead className="text-right">Bedrag</TableHead>
-                      <TableHead>Vervaldatum</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Acties</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {invoices.map((inv, i) => (
-                      <TableRow key={inv.id}>
-                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                        <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {inv.boekingsdatum
-                            ? format(new Date(inv.boekingsdatum), 'dd MMM yyyy', { locale: nl })
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {inv.aangemaakt_in_exact
-                            ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
-                            {inv._suggestRecurring && (
-                              <Badge className="text-xs bg-purple-500/15 text-purple-600 border-purple-500/30">
-                                Mogelijk recurring
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {formatCurrency(inv.bedrag)}
-                        </TableCell>
-                        <TableCell>
-                          {inv.vervaldatum
-                            ? format(new Date(inv.vervaldatum), 'dd MMM yyyy', { locale: nl })
-                            : '—'}
-                        </TableCell>
-                        <TableCell>
-                          {inv.import_status === 'skipped' ? (
-                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30">
-                              Overgeslagen
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary">Nieuw</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isViewer ? (
-                            <span className="text-xs text-muted-foreground">Alleen admins kunnen importeren</span>
-                          ) : (
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-green-600 border-green-500/30 hover:bg-green-500/10"
-                                onClick={() => openImportModal(inv, 'forecast')}
-                              >
-                                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Naar forecast
+                <>
+                  {/* Filterbalk */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Zoek op naam of factuurnummer…"
+                        value={zoekterm}
+                        onChange={(e) => setZoekterm(e.target.value)}
+                        className="h-8 w-64 text-sm pl-8"
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">{gesorteerdeFacturen.length} posten</span>
+                  </div>
+
+                  {/* Bulk-actiebalk */}
+                  {selectedIds.size > 0 && (
+                    <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-muted/50 border">
+                      <span className="text-sm font-medium mr-2">
+                        {selectedIds.size} geselecteerd
+                      </span>
+
+                      {bulkMode === 'forecast' ? (
+                        <div className="flex items-center gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" size="sm" className="h-8">
+                                <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+                                {bulkWeek ? format(bulkWeek, 'd MMM yyyy', { locale: nl }) : 'Kies week'}
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
-                                onClick={() => openImportModal(inv, 'betaald')}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reeds betaald
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10"
-                                onClick={() => openImportModal(inv, 'recurring')}
-                              >
-                                <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-muted-foreground border-border hover:bg-muted"
-                                onClick={() => alInForecastMutation.mutate(inv.id)}
-                              >
-                                <X className="h-3.5 w-3.5 mr-1" /> Al in forecast
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={bulkWeek}
+                                onSelect={(d) => d && setBulkWeek(startOfISOWeek(d))}
+                                className="p-3 pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Button size="sm" onClick={() => uitvoerenBulk('forecast', bulkWeek)}>
+                            Bevestig
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setBulkMode(null)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="outline" className="text-green-600 border-green-500/30 hover:bg-green-500/10" onClick={() => setBulkMode('forecast')}>
+                            <TrendingUp className="h-3.5 w-3.5 mr-1" /> Naar forecast
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-blue-600 border-blue-500/30 hover:bg-blue-500/10" onClick={() => uitvoerenBulk('betaald')}>
+                            <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reeds betaald
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10" onClick={() => uitvoerenBulk('recurring')}>
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
+                          </Button>
+                          <Button size="sm" variant="outline" className="text-muted-foreground" onClick={() => uitvoerenBulk('al_in_forecast')}>
+                            <X className="h-3.5 w-3.5 mr-1" /> Al in forecast
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">
+                          <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('aangemaakt_in_exact')}>
+                          <span className="flex items-center">Toegevoegd in Exact <SortIcon field="aangemaakt_in_exact" /></span>
+                        </TableHead>
+                        <TableHead>Factuurnummer</TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('tegenpartij')}>
+                          <span className="flex items-center">Tegenpartij <SortIcon field="tegenpartij" /></span>
+                        </TableHead>
+                        <TableHead className="text-right cursor-pointer select-none" onClick={() => toggleSort('bedrag')}>
+                          <span className="flex items-center justify-end">Bedrag <SortIcon field="bedrag" /></span>
+                        </TableHead>
+                        <TableHead className="cursor-pointer select-none" onClick={() => toggleSort('vervaldatum')}>
+                          <span className="flex items-center">Vervaldatum <SortIcon field="vervaldatum" /></span>
+                        </TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Acties</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {gesorteerdeFacturen.map((inv) => (
+                        <TableRow key={inv.id} className={selectedIds.has(inv.id) ? 'bg-muted/30' : ''}>
+                          <TableCell>
+                            <Checkbox checked={selectedIds.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} />
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {inv.aangemaakt_in_exact
+                              ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
+                              {inv._suggestRecurring && (
+                                <Badge className="text-xs bg-purple-500/15 text-purple-600 border-purple-500/30">
+                                  Mogelijk recurring
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {formatCurrency(inv.bedrag)}
+                          </TableCell>
+                          <TableCell>
+                            {inv.vervaldatum
+                              ? format(new Date(inv.vervaldatum), 'dd MMM yyyy', { locale: nl })
+                              : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {inv.import_status === 'skipped' ? (
+                              <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/30">
+                                Overgeslagen
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary">Nieuw</Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {isViewer ? (
+                              <span className="text-xs text-muted-foreground">Alleen admins</span>
+                            ) : (
+                              <div className="flex gap-2 justify-end">
+                                <Button size="sm" variant="outline" className="text-green-600 border-green-500/30 hover:bg-green-500/10" onClick={() => openImportModal(inv, 'forecast')}>
+                                  <TrendingUp className="h-3.5 w-3.5 mr-1" /> Naar forecast
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-blue-600 border-blue-500/30 hover:bg-blue-500/10" onClick={() => openImportModal(inv, 'betaald')}>
+                                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reeds betaald
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10" onClick={() => openImportModal(inv, 'recurring')}>
+                                  <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
+                                </Button>
+                                <Button size="sm" variant="outline" className="text-muted-foreground border-border hover:bg-muted" onClick={() => alInForecastMutation.mutate(inv.id)}>
+                                  <X className="h-3.5 w-3.5 mr-1" /> Al in forecast
+                                </Button>
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
               )}
             </CardContent>
           </Card>
@@ -478,7 +644,6 @@ export default function ExactImport() {
           </DialogHeader>
           {importModal && (
             <div className="space-y-4">
-              {/* Read-only info */}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-muted-foreground">Tegenpartij</span>
@@ -507,19 +672,15 @@ export default function ExactImport() {
                   Weet je zeker dat deze factuur al betaald is? Er wordt een historisch cashflow-item aangemaakt en de factuur verdwijnt uit de inbox.
                 </p>
               ) : (
-                /* Editable fields for forecast & recurring */
                 <div className="space-y-3">
                   <div>
                     <Label>Omschrijving</Label>
                     <Input value={modalOmschrijving} onChange={(e) => setModalOmschrijving(e.target.value)} />
                   </div>
-
                   <div>
                     <Label>Categorie</Label>
                     <Select value={modalCategorie} onValueChange={setModalCategorie}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Omzet">Omzet</SelectItem>
                         <SelectItem value="Kosten">Kosten</SelectItem>
@@ -529,30 +690,17 @@ export default function ExactImport() {
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div>
                     <Label>Week</Label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full justify-start text-left font-normal',
-                            !modalWeek && 'text-muted-foreground'
-                          )}
-                        >
+                        <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !modalWeek && 'text-muted-foreground')}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {modalWeek ? format(modalWeek, 'dd MMM yyyy', { locale: nl }) : 'Kies een week'}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={modalWeek}
-                          onSelect={(date) => date && setModalWeek(startOfISOWeek(date))}
-                          initialFocus
-                          className={cn('p-3 pointer-events-auto')}
-                        />
+                        <Calendar mode="single" selected={modalWeek} onSelect={(date) => date && setModalWeek(startOfISOWeek(date))} initialFocus className="p-3 pointer-events-auto" />
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -561,13 +709,8 @@ export default function ExactImport() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportModal(null)}>
-              Annuleren
-            </Button>
-            <Button
-              onClick={() => importMutation.mutate()}
-              disabled={importMutation.isPending}
-            >
+            <Button variant="outline" onClick={() => setImportModal(null)}>Annuleren</Button>
+            <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending}>
               {importMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {importMode === 'betaald' ? 'Bevestig betaald' : importMode === 'recurring' ? 'Bevestig recurring' : 'Bevestig import'}
             </Button>
