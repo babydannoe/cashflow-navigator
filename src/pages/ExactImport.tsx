@@ -493,7 +493,7 @@ export default function ExactImport() {
               disabled={importMutation.isPending}
             >
               {importMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              {importMode === 'recurring' ? 'Bevestig recurring' : 'Bevestig import'}
+              {importMode === 'betaald' ? 'Bevestig betaald' : importMode === 'recurring' ? 'Bevestig recurring' : 'Bevestig import'}
             </Button>
           </DialogFooter>
         </DialogContent>
