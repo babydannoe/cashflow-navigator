@@ -284,6 +284,7 @@ Deno.serve(async (req) => {
               .update({
                 bedrag: inv.bedrag,
                 vervaldatum: inv.vervaldatum,
+                boekingsdatum: inv.boekingsdatum,
                 status: inv.status,
                 laatste_sync: inv.laatste_sync,
                 factuurnummer: inv.factuurnummer,

@@ -377,6 +377,11 @@ export default function ExactImport() {
                       <TableRow key={inv.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {inv.boekingsdatum
+                            ? format(new Date(inv.boekingsdatum), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
