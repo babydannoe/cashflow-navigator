@@ -335,6 +335,9 @@ export default function Betalingsronden() {
                     <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
                       <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
                     </Button>
+                    <Button size="sm" variant="destructive" onClick={verwijderCIBulk}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen ({selectedCIIds.size})
+                    </Button>
                   </div>
                 )}
               </div>
