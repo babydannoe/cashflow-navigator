@@ -306,6 +306,7 @@ Deno.serve(async (req) => {
                 bedrag: inv.bedrag,
                 vervaldatum: inv.vervaldatum,
                 boekingsdatum: inv.boekingsdatum,
+                aangemaakt_in_exact: inv.aangemaakt_in_exact,
                 status: inv.status,
                 laatste_sync: inv.laatste_sync,
                 factuurnummer: inv.factuurnummer,
