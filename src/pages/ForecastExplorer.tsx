@@ -192,12 +192,20 @@ export default function ForecastExplorer() {
           result.push(row);
         }
       } else if (row.type === 'detail') {
-        // parentId = "in::Diensten::Jongens van Boven", need catId = "in::Diensten"
         const parts = row.parentId?.split('::') || [];
-        const catId = parts.slice(0, 2).join('::');
-        const subId = row.parentId;
-        if (catId && subId && expanded.has(catId) && expanded.has(subId)) {
-          result.push(row);
+        if (parts.length === 2) {
+          // Direct onder categorie (enkelvoudig item) — toon als categorie expanded is
+          const catId = row.parentId;
+          if (catId && expanded.has(catId)) {
+            result.push(row);
+          }
+        } else {
+          // Onder subcategorie — beide moeten expanded zijn
+          const catId = parts.slice(0, 2).join('::');
+          const subId = row.parentId;
+          if (catId && subId && expanded.has(catId) && expanded.has(subId)) {
+            result.push(row);
+          }
         }
       }
     }
@@ -531,7 +539,6 @@ function buildCategoryRows(
 ): MatrixRow[] {
   const rows: MatrixRow[] = [];
 
-  // Group by categorie
   const catMap = new Map<string, CashflowItem[]>();
   for (const item of items) {
     const key = item.categorie || 'Overig';
@@ -541,18 +548,22 @@ function buildCategoryRows(
 
   for (const [cat, catItems] of catMap) {
     const catId = `${flowType}::${cat}`;
-
-    // Level 1: Category row — sum of all items per week
     const catRow: MatrixRow = {
-      id: catId, type: 'category', label: cat,
-      weekValues: {}, indent: 0, expandable: true,
+      id: catId,
+      type: 'category',
+      label: cat,
+      weekValues: {},
+      indent: 0,
+      expandable: catItems.length > 1,
     };
     for (const w of weeks) {
-      catRow.weekValues[w] = catItems.filter(i => i.week === w).reduce((s, i) => s + i.bedrag, 0);
+      catRow.weekValues[w] = catItems
+        .filter(i => i.week === w)
+        .reduce((s, i) => s + i.bedrag, 0);
     }
     rows.push(catRow);
 
-    // Group by counterparty/subcategorie
+    // Groepeer per subcategorie/tegenpartij
     const subMap = new Map<string, CashflowItem[]>();
     for (const item of catItems) {
       const key = item.subcategorie || item.tegenpartij || 'Overig';
@@ -563,32 +574,54 @@ function buildCategoryRows(
     for (const [sub, subItems] of subMap) {
       const subId = `${catId}::${sub}`;
 
-      // Level 2: Counterparty row — sum of all items from this counterparty per week
-      const subRow: MatrixRow = {
-        id: subId, type: 'subcategory', label: sub, parentId: catId,
-        weekValues: {}, indent: 1, expandable: true,
-      };
-      for (const w of weeks) {
-        subRow.weekValues[w] = subItems.filter(i => i.week === w).reduce((s, i) => s + i.bedrag, 0);
-      }
-      rows.push(subRow);
-
-      // Level 3: Each individual item as its own row
-      subItems.forEach((item, idx) => {
-        // Use index + ref_id + week to guarantee unique ID per row
-        const detailId = `${subId}::detail::${item.ref_id || 'x'}::${item.week}::${idx}`;
+      if (subItems.length === 1) {
+        // Slechts één item — geen subcategorie-rij, detail direct onder categorie
+        const item = subItems[0];
+        const detailId = `${subId}::detail::${item.ref_id || 'x'}::${item.week}::0`;
         const detailRow: MatrixRow = {
           id: detailId,
           type: 'detail',
           label: item.omschrijving || `€${item.bedrag.toLocaleString('nl-NL')}`,
-          parentId: subId,
+          parentId: catId,
           weekValues: { [item.week]: item.bedrag },
-          indent: 2,
+          indent: 1,
           expandable: false,
           detailItem: item,
         };
         rows.push(detailRow);
-      });
+      } else {
+        // Meerdere items — subcategorie-rij + detail-rijen
+        const subRow: MatrixRow = {
+          id: subId,
+          type: 'subcategory',
+          label: sub,
+          parentId: catId,
+          weekValues: {},
+          indent: 1,
+          expandable: true,
+        };
+        for (const w of weeks) {
+          subRow.weekValues[w] = subItems
+            .filter(i => i.week === w)
+            .reduce((s, i) => s + i.bedrag, 0);
+        }
+        rows.push(subRow);
+
+        subItems.forEach((item, idx) => {
+          const detailId = `${subId}::detail::${item.ref_id || 'x'}::${item.week}::${idx}`;
+          const detailRow: MatrixRow = {
+            id: detailId,
+            type: 'detail',
+            label: item.omschrijving || `€${item.bedrag.toLocaleString('nl-NL')}`,
+            parentId: subId,
+            weekValues: { [item.week]: item.bedrag },
+            indent: 2,
+            expandable: false,
+            detailItem: item,
+          };
+          rows.push(detailRow);
+        });
+      }
     }
   }
 
