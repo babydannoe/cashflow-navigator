@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward } from 'lucide-react';
+import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward, X } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
