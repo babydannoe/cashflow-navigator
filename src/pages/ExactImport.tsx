@@ -395,7 +395,9 @@ export default function ExactImport() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {importMode === 'recurring' ? 'Als recurring instellen' : 'Post importeren naar Forecast'}
+              {importMode === 'forecast' && 'Doorvoeren naar forecast'}
+              {importMode === 'betaald' && 'Markeren als reeds betaald'}
+              {importMode === 'recurring' && 'Instellen als recurring kost'}
             </DialogTitle>
           </DialogHeader>
           {importModal && (
