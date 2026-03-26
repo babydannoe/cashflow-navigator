@@ -299,10 +299,19 @@ export default function ExactImport() {
           <p className="text-muted-foreground">Beoordeel nieuwe posten vanuit Exact Online</p>
         </div>
         {isAdmin && (
-          <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Sync nieuwe posten
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync nieuwe posten
+            </Button>
+            {lastSyncTime ? (
+              <span className="text-xs text-muted-foreground">
+                Laatste sync: {format(lastSyncTime, 'dd MMM yyyy HH:mm', { locale: nl })}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Nog niet gesynchroniseerd</span>
+            )}
+          </div>
         )}
       </div>
 
