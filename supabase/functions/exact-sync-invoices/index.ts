@@ -16,7 +16,7 @@ function jsonResponse(data: unknown, status = 200) {
 const EXACT_BASE = "https://start.exactonline.nl/api";
 
 
-async function getValidToken(supabase: any, bv_id: string) {
+async function getValidToken(supabase: any, bv_id: string, supabaseUrl: string, anonKey: string) {
   const { data: tokenRow, error } = await supabase
     .from("exact_tokens")
     .select("*")
@@ -27,13 +27,11 @@ async function getValidToken(supabase: any, bv_id: string) {
 
   // Refresh if expiring within 60 seconds
   if (new Date(tokenRow.expires_at).getTime() < Date.now() + 60_000) {
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const refreshRes = await fetch(`${SUPABASE_URL}/functions/v1/exact-auth/refresh`, {
+    const refreshRes = await fetch(`${supabaseUrl}/functions/v1/exact-auth/refresh`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+        "Authorization": `Bearer ${anonKey}`,
       },
       body: JSON.stringify({ bv_id }),
     });
