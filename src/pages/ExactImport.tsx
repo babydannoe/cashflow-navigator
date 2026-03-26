@@ -160,9 +160,28 @@ export default function ExactImport() {
 
   const importMutation = useMutation({
     mutationFn: async () => {
-      if (!importModal || !modalWeek) throw new Error('Geen data');
+      if (!importModal) throw new Error('Geen data');
 
-      if (importMode === 'recurring') {
+      if (importMode === 'betaald') {
+        // Cashflow item aanmaken met status betaald — voor historiek
+        await supabase.from('cashflow_items').insert({
+          bv_id: importModal.bv_id,
+          week: format(startOfISOWeek(new Date(importModal.vervaldatum ?? new Date())), 'yyyy-MM-dd'),
+          type: importModal.type === 'AR' ? 'in' : 'out',
+          bedrag: Math.abs(importModal.bedrag),
+          omschrijving: importModal.counterparties?.naam ?? importModal.factuurnummer ?? 'Exact factuur',
+          categorie: importModal.type === 'AR' ? 'Omzet' : 'Kosten',
+          bron: 'exact_import',
+          ref_id: importModal.id,
+          ref_type: 'invoice',
+          status: 'betaald',
+        });
+        // Factuur markeren als afgehandeld
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .eq('id', importModal.id);
+      } else if (importMode === 'recurring') {
+        if (!modalWeek) throw new Error('Geen week geselecteerd');
         // Voeg toe als recurring rule
         await supabase.from('recurring_rules').insert({
           bv_id: importModal.bv_id,
@@ -194,7 +213,8 @@ export default function ExactImport() {
           status: 'betaald',
         });
       } else {
-        // Bestaande forecast-logica
+        // Forecast-logica
+        if (!modalWeek) throw new Error('Geen week geselecteerd');
         const cfItem = {
           bv_id: importModal.bv_id,
           week: format(modalWeek, 'yyyy-MM-dd'),
@@ -230,16 +250,18 @@ export default function ExactImport() {
       return { tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer };
     },
     onSuccess: (result) => {
-      const msg = importMode === 'recurring'
-        ? `✓ ${result?.tegenpartij ?? 'Post'} als recurring ingesteld`
-        : `✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`;
-      toast.success(msg);
+      const msgs: Record<string, string> = {
+        betaald: `✓ ${result?.tegenpartij ?? 'Post'} gemarkeerd als reeds betaald`,
+        recurring: `✓ ${result?.tegenpartij ?? 'Post'} als recurring ingesteld`,
+        forecast: `✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`,
+      };
+      toast.success(msgs[importMode]);
       setImportModal(null);
       queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
     },
     onError: (err: any) => {
-      toast.error(`Import mislukt: ${err.message}`);
+      toast.error(`Actie mislukt: ${err.message}`);
     },
   });
 
