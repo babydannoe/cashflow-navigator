@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { RefreshCw, Check, SkipForward, CalendarIcon, CheckCircle2, Loader2 } from 'lucide-react';
+import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -36,6 +36,7 @@ interface Invoice {
   bron: string | null;
   counterparty_id: string | null;
   counterparties: { id: string; naam: string } | null;
+  _suggestRecurring?: boolean;
 }
 
 // We need to cast since types.ts doesn't have the new columns yet
@@ -50,6 +51,7 @@ export default function ExactImport() {
   const [selectedBvId, setSelectedBvId] = useState<string>(bvs[0]?.id ?? '');
   const [activeTab, setActiveTab] = useState<'AR' | 'AP'>('AR');
   const [importModal, setImportModal] = useState<Invoice | null>(null);
+  const [importMode, setImportMode] = useState<'forecast' | 'recurring'>('forecast');
   const [syncing, setSyncing] = useState(false);
 
   // Modal form state
@@ -75,10 +77,24 @@ export default function ExactImport() {
         .neq('status', 'betaald')
         .order('vervaldatum', { ascending: true });
       if (error) throw error;
-      // Filter client-side for import_status since column may not be in generated types yet
+
+      // Haal recurring rules op voor matching
+      const { data: recurringRules } = await supabase
+        .from('recurring_rules')
+        .select('omschrijving, bv_id')
+        .eq('actief', true);
+
       return (data ?? [])
         .map(castInvoice)
-        .filter(inv => inv.import_status === 'pending' || inv.import_status === 'skipped');
+        .filter(inv => inv.import_status === 'pending' || inv.import_status === 'skipped')
+        .map(inv => {
+          const naam = inv.counterparties?.naam ?? inv.factuurnummer ?? '';
+          const isRecurring = (recurringRules ?? []).some(r =>
+            r.bv_id === inv.bv_id &&
+            naam.toLowerCase().includes((r.omschrijving ?? '').toLowerCase().trim())
+          );
+          return { ...inv, _suggestRecurring: isRecurring };
+        });
     },
     enabled: !!selectedBvId,
   });
@@ -110,17 +126,41 @@ export default function ExactImport() {
     }
   };
 
-  const openImportModal = (invoice: Invoice) => {
+  const openImportModal = (invoice: Invoice, mode: 'forecast' | 'recurring') => {
     setImportModal(invoice);
+    setImportMode(mode);
     setModalOmschrijving(
-      [invoice.factuurnummer, invoice.status].filter(Boolean).join(' – ')
+      invoice.counterparties?.naam ?? invoice.factuurnummer ?? ''
     );
-    setModalCategorie(invoice.type === 'AR' ? 'Omzet' : 'Kosten');
+    setModalCategorie(
+      mode === 'recurring' ? 'Recurring kosten' : (invoice.type === 'AR' ? 'Omzet' : 'Kosten')
+    );
     if (invoice.vervaldatum) {
       setModalWeek(startOfISOWeek(new Date(invoice.vervaldatum)));
     } else {
       setModalWeek(startOfISOWeek(new Date()));
     }
+  };
+
+  const markeerBetaald = async (inv: Invoice) => {
+    await supabase.from('invoices')
+      .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+      .eq('id', inv.id);
+    await supabase.from('cashflow_items').insert({
+      bv_id: inv.bv_id,
+      week: format(startOfISOWeek(new Date()), 'yyyy-MM-dd'),
+      type: inv.type === 'AR' ? 'in' : 'out',
+      bedrag: Math.abs(inv.bedrag),
+      omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
+      categorie: inv.type === 'AR' ? 'Omzet' : 'Kosten',
+      bron: 'exact_import',
+      ref_id: inv.id,
+      ref_type: 'invoice',
+      status: 'betaald',
+    });
+    toast.success('Gemarkeerd als reeds betaald');
+    queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
+    queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
   };
 
   const skipMutation = useMutation({
@@ -141,43 +181,78 @@ export default function ExactImport() {
     mutationFn: async () => {
       if (!importModal || !modalWeek) throw new Error('Geen data');
 
-      // 1. Create cashflow_item
-      const cfItem = {
-        bv_id: importModal.bv_id,
-        week: format(modalWeek, 'yyyy-MM-dd'),
-        type: importModal.type === 'AR' ? 'in' : 'out',
-        bedrag: Math.abs(importModal.bedrag),
-        omschrijving: modalOmschrijving,
-        categorie: modalCategorie,
-        tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer ?? null,
-        bron: 'exact_import',
-        ref_id: importModal.id,
-        ref_type: 'invoice',
-        status: 'actief',
-      };
+      if (importMode === 'recurring') {
+        // Voeg toe als recurring rule
+        await supabase.from('recurring_rules').insert({
+          bv_id: importModal.bv_id,
+          omschrijving: modalOmschrijving,
+          bedrag: Math.abs(importModal.bedrag),
+          frequentie: 'maandelijks',
+          categorie: modalCategorie,
+          actief: true,
+          bron: 'exact_import',
+          verwachte_betaaldag: importModal.vervaldatum
+            ? new Date(importModal.vervaldatum).getDate()
+            : 1,
+        });
+        // Markeer ook als betaald in invoices
+        await supabase.from('invoices')
+          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .eq('id', importModal.id);
+        // Maak een cashflow_item aan met status betaald voor de historiek
+        await supabase.from('cashflow_items').insert({
+          bv_id: importModal.bv_id,
+          week: format(startOfISOWeek(modalWeek!), 'yyyy-MM-dd'),
+          type: 'out',
+          bedrag: Math.abs(importModal.bedrag),
+          omschrijving: modalOmschrijving,
+          categorie: 'Recurring kosten',
+          bron: 'exact_import',
+          ref_id: importModal.id,
+          ref_type: 'invoice',
+          status: 'betaald',
+        });
+      } else {
+        // Bestaande forecast-logica
+        const cfItem = {
+          bv_id: importModal.bv_id,
+          week: format(modalWeek, 'yyyy-MM-dd'),
+          type: importModal.type === 'AR' ? 'in' : 'out',
+          bedrag: Math.abs(importModal.bedrag),
+          omschrijving: modalOmschrijving,
+          categorie: modalCategorie,
+          tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer ?? null,
+          bron: 'exact_import',
+          ref_id: importModal.id,
+          ref_type: 'invoice',
+          status: 'actief',
+        };
 
-      const { data: cfData, error: cfError } = await supabase
-        .from('cashflow_items')
-        .insert(cfItem)
-        .select('id')
-        .single();
-      if (cfError) throw cfError;
+        const { data: cfData, error: cfError } = await supabase
+          .from('cashflow_items')
+          .insert(cfItem)
+          .select('id')
+          .single();
+        if (cfError) throw cfError;
 
-      // 2. Update invoice
-      const { error: invError } = await supabase
-        .from('invoices')
-        .update({
-          import_status: 'imported',
-          imported_at: new Date().toISOString(),
-          forecast_item_id: cfData.id,
-        } as any)
-        .eq('id', importModal.id);
-      if (invError) throw invError;
+        const { error: invError } = await supabase
+          .from('invoices')
+          .update({
+            import_status: 'imported',
+            imported_at: new Date().toISOString(),
+            forecast_item_id: cfData.id,
+          } as any)
+          .eq('id', importModal.id);
+        if (invError) throw invError;
+      }
 
       return { tegenpartij: importModal.counterparties?.naam ?? importModal.factuurnummer };
     },
     onSuccess: (result) => {
-      toast.success(`✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`);
+      const msg = importMode === 'recurring'
+        ? `✓ ${result?.tegenpartij ?? 'Post'} als recurring ingesteld`
+        : `✓ ${result?.tegenpartij ?? 'Post'} geïmporteerd naar Forecast Explorer`;
+      toast.success(msg);
       setImportModal(null);
       queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
@@ -265,7 +340,16 @@ export default function ExactImport() {
                       <TableRow key={inv.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
-                        <TableCell>{inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
+                            {inv._suggestRecurring && (
+                              <Badge className="text-xs bg-purple-500/15 text-purple-600 border-purple-500/30">
+                                Mogelijk recurring
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(inv.bedrag)}
                         </TableCell>
@@ -292,18 +376,25 @@ export default function ExactImport() {
                                 size="sm"
                                 variant="outline"
                                 className="text-green-600 border-green-500/30 hover:bg-green-500/10"
-                                onClick={() => openImportModal(inv)}
+                                onClick={() => openImportModal(inv, 'forecast')}
                               >
-                                <Check className="h-3.5 w-3.5 mr-1" /> Importeren
+                                <TrendingUp className="h-3.5 w-3.5 mr-1" /> Naar forecast
                               </Button>
                               <Button
                                 size="sm"
-                                variant="ghost"
-                                className="text-muted-foreground"
-                                onClick={() => skipMutation.mutate(inv.id)}
-                                disabled={inv.import_status === 'skipped'}
+                                variant="outline"
+                                className="text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
+                                onClick={() => markeerBetaald(inv)}
                               >
-                                <SkipForward className="h-3.5 w-3.5 mr-1" /> Niet importeren
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reeds betaald
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-purple-600 border-purple-500/30 hover:bg-purple-500/10"
+                                onClick={() => openImportModal(inv, 'recurring')}
+                              >
+                                <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
                               </Button>
                             </div>
                           )}
@@ -322,7 +413,9 @@ export default function ExactImport() {
       <Dialog open={!!importModal} onOpenChange={(open) => !open && setImportModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Post importeren naar Forecast</DialogTitle>
+            <DialogTitle>
+              {importMode === 'recurring' ? 'Als recurring instellen' : 'Post importeren naar Forecast'}
+            </DialogTitle>
           </DialogHeader>
           {importModal && (
             <div className="space-y-4">
@@ -366,6 +459,7 @@ export default function ExactImport() {
                     <SelectContent>
                       <SelectItem value="Omzet">Omzet</SelectItem>
                       <SelectItem value="Kosten">Kosten</SelectItem>
+                      <SelectItem value="Recurring kosten">Recurring kosten</SelectItem>
                       <SelectItem value="Financiering">Financiering</SelectItem>
                       <SelectItem value="Overig">Overig</SelectItem>
                     </SelectContent>
@@ -410,7 +504,7 @@ export default function ExactImport() {
               disabled={importMutation.isPending}
             >
               {importMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Bevestig import
+              {importMode === 'recurring' ? 'Bevestig recurring' : 'Bevestig import'}
             </Button>
           </DialogFooter>
         </DialogContent>
