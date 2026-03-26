@@ -274,6 +274,17 @@ export default function FinanceMeeting() {
           && i.status !== 'betaald'
       );
       setCashflowItems(items);
+
+      // Haal totaal goedgekeurde posten op uit betalingsronde
+      const { data: goedgekeurdData } = await supabase
+        .from('cashflow_items')
+        .select('bedrag, bv_id')
+        .eq('status', 'goedgekeurd')
+        .eq('type', 'out')
+        .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
+
+      const totaal = (goedgekeurdData || []).reduce((s: number, i: any) => s + Number(i.bedrag || 0), 0);
+      setTotaalGoedgekeurd(totaal);
       setOpeningBalance(data.openingBalance ?? 0);
 
       // Bank accounts
