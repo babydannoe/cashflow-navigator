@@ -698,23 +698,45 @@ export default function FinanceMeeting() {
         {/* ── TAB 1: Deze week ── */}
         <TabsContent value="deze-week" className="space-y-4 mt-4">
           {/* Bulk action bar */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg">
-              <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
-              <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => goedkeurenBulk(Array.from(selectedIds))}>
-                <Check className="h-3.5 w-3.5 mr-1" /> Goedkeuren voor betaling
-              </Button>
-              <Button size="sm" variant="outline" className="h-8"
-                onClick={() => verschuifBulk(Array.from(selectedIds))}>
-                <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 ml-auto"
-                onClick={() => setSelectedIds(new Set())}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          {selectedIds.size > 0 && (() => {
+            const selectedOutIds = Array.from(selectedIds).filter(id =>
+              outItems.some(i => i.cashflow_item_id === id)
+            );
+            const selectedInIds = Array.from(selectedIds).filter(id =>
+              inItems.some(i => i.cashflow_item_id === id)
+            );
+            return (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
+                <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
+                {selectedOutIds.length > 0 && (
+                  <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => goedkeurenBulk(selectedOutIds)}>
+                    <Check className="h-3.5 w-3.5 mr-1" /> Goedkeuren voor betaling
+                  </Button>
+                )}
+                {selectedInIds.length > 0 && (
+                  <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={async () => {
+                      for (const id of selectedInIds) {
+                        const item = inItems.find(i => i.cashflow_item_id === id);
+                        if (item) await checkOntvangen(item);
+                      }
+                      setSelectedIds(new Set());
+                    }}>
+                    <PackageCheck className="h-3.5 w-3.5 mr-1" /> Check ontvangen
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="h-8"
+                  onClick={() => verschuifBulk(Array.from(selectedIds))}>
+                  <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 ml-auto"
+                  onClick={() => setSelectedIds(new Set())}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
