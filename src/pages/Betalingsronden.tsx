@@ -319,6 +319,33 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  const verwijderenEnkel = async (id: string) => {
+    if (!confirm('Weet je zeker dat je deze post permanent wilt verwijderen?')) return;
+    const { error } = await supabase.from('cashflow_items').delete().eq('id', id);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items', actie: 'DELETE', record_id: id,
+      oud_waarde: { status: 'betaald' }, nieuw_waarde: null,
+    });
+    toast.success('Post verwijderd');
+    fetchData();
+  };
+
+  const verwijderenBulk = async () => {
+    if (!confirm(`Weet je zeker dat je ${selectedBetaaldIds.size} posten permanent wilt verwijderen?`)) return;
+    const ids = Array.from(selectedBetaaldIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items').delete().eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items', actie: 'DELETE', record_id: id,
+        oud_waarde: { status: 'betaald' }, nieuw_waarde: null,
+      });
+    }
+    toast.success(`${ids.length} posten verwijderd`);
+    setSelectedBetaaldIds(new Set());
+    fetchData();
+  };
+
   const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
 
   const STATUS_BADGE: Record<string, string> = {
