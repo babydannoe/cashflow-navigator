@@ -155,9 +155,8 @@ Deno.serve(async (req) => {
         allResults.push({ bv_id: currentBvId, error: "Geen Exact divisie ingesteld voor deze BV" });
         continue;
       }
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 12);
-      const sinceDate = sixMonthsAgo.toISOString().split("T")[0];
+
+
 
       // ── Sales Invoices (AR) via ReceivablesList ──
       let arRecords: any[] = [];
