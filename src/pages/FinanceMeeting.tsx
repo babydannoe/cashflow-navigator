@@ -556,8 +556,8 @@ export default function FinanceMeeting() {
 
   const renderOutTable = () => {
     const colorClass = 'text-destructive';
-    const allSelectableOut = outDecision.filter(i => i.cashflow_item_id);
-    const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(i.cashflow_item_id!));
+    const allSelectableOut = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
+    const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(getSelectKey(i)));
     return (
       <Table>
         <TableHeader>
@@ -569,9 +569,9 @@ export default function FinanceMeeting() {
                   onCheckedChange={() => {
                     const next = new Set(selectedIds);
                     if (allOutSelected) {
-                      allSelectableOut.forEach(i => next.delete(i.cashflow_item_id!));
+                      allSelectableOut.forEach(i => next.delete(getSelectKey(i)));
                     } else {
-                      allSelectableOut.forEach(i => next.add(i.cashflow_item_id!));
+                      allSelectableOut.forEach(i => next.add(getSelectKey(i)));
                     }
                     setSelectedIds(next);
                   }}
