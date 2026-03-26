@@ -53,6 +53,7 @@ export default function ExactImport() {
   const [importModal, setImportModal] = useState<Invoice | null>(null);
   const [importMode, setImportMode] = useState<'forecast' | 'recurring' | 'betaald'>('forecast');
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Modal form state
   const [modalOmschrijving, setModalOmschrijving] = useState('');
