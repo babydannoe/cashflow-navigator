@@ -258,6 +258,30 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  const verwijderCI = async (id: string) => {
+    await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
+      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+    });
+    toast.success('Post verwijderd uit betalingsronde');
+    fetchData();
+  };
+
+  const verwijderCIBulk = async () => {
+    const ids = Array.from(selectedCIIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
+        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+      });
+    }
+    toast.success(`${ids.length} posten verwijderd uit betalingsronde`);
+    setSelectedCIIds(new Set());
+    fetchData();
+  };
+
   // ── Historiek functies ──
   const terugzettenEnkel = async (id: string) => {
     const { error } = await supabase
