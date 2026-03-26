@@ -402,6 +402,11 @@ export default function Betalingsronden() {
                         </TableRow>
                       );
                     })}
+                    <TableRow className="bg-muted/50 font-medium border-t-2">
+                      <TableCell colSpan={4} className="text-sm">Totaal ({goedgekeurdItems.length} posten)</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(goedgekeurdItems.reduce((s, i) => s + i.bedrag, 0))}</TableCell>
+                      <TableCell />
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
