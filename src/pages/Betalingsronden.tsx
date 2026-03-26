@@ -734,6 +734,13 @@ export default function Betalingsronden() {
                               )}
                             </TableCell>
                             <TableCell>
+                              <Badge className={item.status === 'ontvangen' 
+                                ? 'bg-blue-500/15 text-blue-600' 
+                                : 'bg-emerald-500/15 text-emerald-600'}>
+                                {item.status === 'ontvangen' ? 'Ontvangen' : 'Betaald'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
                               <div className="flex items-center gap-1.5">
                                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: (bv as any)?.kleur || '#888' }} />
                                 <span className="text-sm">{(bv as any)?.naam || '—'}</span>

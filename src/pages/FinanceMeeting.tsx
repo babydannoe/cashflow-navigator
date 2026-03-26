@@ -273,6 +273,7 @@ export default function FinanceMeeting() {
         (i: CashflowItem) => i.week === currentWeekDate
           && i.status !== 'goedgekeurd'
           && i.status !== 'betaald'
+          && i.status !== 'ontvangen'
       );
       setCashflowItems(items);
 
