@@ -301,11 +301,15 @@ Deno.serve(async (req) => {
                 status: inv.status,
                 laatste_sync: inv.laatste_sync,
                 factuurnummer: inv.factuurnummer,
+                ...(inv.counterparty_id ? { counterparty_id: inv.counterparty_id } : {}),
               })
               .eq("exact_id", inv.exact_id);
           } else {
             // New invoice: insert with default import_status = 'pending'
-            await supabase.from("invoices").insert(inv);
+            await supabase.from("invoices").insert({
+              ...inv,
+              import_status: 'pending',
+            });
           }
         }
       }
