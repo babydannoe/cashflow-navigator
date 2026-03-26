@@ -514,6 +514,14 @@ export default function Betalingsronden() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="bg-muted/50 font-medium border-t-2">
+                      <TableCell className="text-sm">Totaal ({paymentRuns.length} rondes)</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right font-mono text-sm">{fmt(paymentRuns.reduce((s, r) => s + (r.totaal_bedrag || 0), 0))}</TableCell>
+                      <TableCell className="text-right text-sm">{paymentRuns.reduce((s, r) => s + (r.aantal_facturen || 0), 0)}</TableCell>
+                      <TableCell />
+                      <TableCell />
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
