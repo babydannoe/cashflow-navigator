@@ -15,22 +15,6 @@ function jsonResponse(data: unknown, status = 200) {
 
 const EXACT_BASE = "https://start.exactonline.nl/api";
 
-const STATUS_MAP_AR: Record<number, string> = {
-  10: "ter_goedkeuring",
-  20: "open",
-  50: "betaald",
-  90: "betaald",
-};
-
-const STATUS_MAP_AP: Record<number, string> = {
-  5:  "concept",
-  10: "ter_goedkeuring",
-  20: "open",
-  30: "open",
-  40: "open",
-  50: "betaald",
-  90: "betaald",
-};
 
 async function getValidToken(supabase: any, bv_id: string) {
   const { data: tokenRow, error } = await supabase
