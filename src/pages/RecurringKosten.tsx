@@ -62,7 +62,7 @@ export default function RecurringKosten() {
   const [filterCat, setFilterCat] = useState('all');
   const [filterBron, setFilterBron] = useState('all');
   const [suggestions, setSuggestions] = useState<ReviewSuggestion[]>(mockSuggestions);
-  const [betaaldeRecurring, setBetaaldeRecurring] = useState<any[]>([]);
+  const [exactOnlineRecurring, setExactOnlineRecurring] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     bv_id: '', categorie: 'Abonnement', omschrijving: '', bedrag: '', frequentie: 'maandelijks',
