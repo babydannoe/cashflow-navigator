@@ -105,6 +105,7 @@ Deno.serve(async (req) => {
         ref_id: ci.ref_id || ci.id,
         ref_type: ci.ref_type || "cashflow_item",
         cashflow_item_id: ci.id,
+        status: ci.status || "actief",
       });
     }
 
