@@ -687,13 +687,19 @@ export default function Betalingsronden() {
                               − {fmt(item.bedrag)}
                             </TableCell>
                             <TableCell>
-                              <Button size="sm" variant="outline" className="h-7"
-                                onClick={() => terugzettenEnkel(item.id)}
-                                title="Terugzetten naar actief"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                                Terugzetten
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" className="h-7 text-muted-foreground"
+                                  onClick={() => terugzettenEnkel(item.id)}
+                                  title="Terugzetten naar Finance Meeting">
+                                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Terugzetten
+                                </Button>
+                                <Button size="sm" variant="outline"
+                                  className="h-7 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                  onClick={() => verwijderenEnkel(item.id)}
+                                  title="Permanent verwijderen">
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
