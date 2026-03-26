@@ -37,6 +37,7 @@ export interface DrilldownItem {
   kans_percentage?: number;
   frequentie?: string;
   cashflow_item_id?: string;
+  opmerking?: string | null;
 }
 
 interface Props {
