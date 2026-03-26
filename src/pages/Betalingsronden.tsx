@@ -57,6 +57,7 @@ interface GoedgekeurdItem {
   bron: string;
   factuurnummer?: string;
   goedgekeurd_op?: string;
+  status?: string;
 }
 
 export default function Betalingsronden() {
