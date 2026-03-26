@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward } from 'lucide-react';
+import { RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, SkipForward, X } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -53,6 +53,7 @@ export default function ExactImport() {
   const [importModal, setImportModal] = useState<Invoice | null>(null);
   const [importMode, setImportMode] = useState<'forecast' | 'recurring' | 'betaald'>('forecast');
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Modal form state
   const [modalOmschrijving, setModalOmschrijving] = useState('');
@@ -122,6 +123,7 @@ export default function ExactImport() {
     } catch (err) {
       toast.error('Sync mislukt');
     } finally {
+      setLastSyncTime(new Date());
       setSyncing(false);
     }
   };
@@ -155,6 +157,27 @@ export default function ExactImport() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
+    },
+  });
+
+  const alInForecastMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          import_status: 'imported',
+          imported_at: new Date().toISOString(),
+        } as any)
+        .eq('id', invoiceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Post verwijderd uit inbox — staat al in de forecast');
+      queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
+    },
+    onError: (err: any) => {
+      toast.error('Fout: ' + err.message);
     },
   });
 
@@ -276,10 +299,19 @@ export default function ExactImport() {
           <p className="text-muted-foreground">Beoordeel nieuwe posten vanuit Exact Online</p>
         </div>
         {isAdmin && (
-          <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Sync nieuwe posten
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button onClick={handleSync} disabled={syncing || !selectedBvId}>
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Sync nieuwe posten
+            </Button>
+            {lastSyncTime ? (
+              <span className="text-xs text-muted-foreground">
+                Laatste sync: {format(lastSyncTime, 'dd MMM yyyy HH:mm', { locale: nl })}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">Nog niet gesynchroniseerd</span>
+            )}
+          </div>
         )}
       </div>
 
@@ -398,6 +430,14 @@ export default function ExactImport() {
                                 onClick={() => openImportModal(inv, 'recurring')}
                               >
                                 <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-muted-foreground border-border hover:bg-muted"
+                                onClick={() => alInForecastMutation.mutate(inv.id)}
+                              >
+                                <X className="h-3.5 w-3.5 mr-1" /> Al in forecast
                               </Button>
                             </div>
                           )}
