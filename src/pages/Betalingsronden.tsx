@@ -284,11 +284,27 @@ export default function Betalingsronden() {
 
   // ── Historiek functies ──
   const terugzettenEnkel = async (id: string) => {
+    // Haal het cashflow_item op om ref_id te weten
+    const { data: ci } = await supabase
+      .from('cashflow_items')
+      .select('ref_id, ref_type')
+      .eq('id', id)
+      .maybeSingle();
+
     const { error } = await supabase
       .from('cashflow_items')
       .update({ status: 'actief', goedgekeurd_op: null } as any)
       .eq('id', id);
     if (error) { toast.error('Fout: ' + error.message); return; }
+
+    // Als het gekoppeld is aan een invoice, zet die ook terug
+    if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+      await supabase
+        .from('invoices')
+        .update({ status: 'open' } as any)
+        .eq('id', ci.ref_id);
+    }
+
     await supabase.from('audit_log').insert({
       tabel: 'cashflow_items',
       actie: 'status → actief (teruggezet)',
@@ -296,16 +312,32 @@ export default function Betalingsronden() {
       oud_waarde: { status: 'betaald' },
       nieuw_waarde: { status: 'actief' },
     });
-    toast.success('Post teruggezet naar actief');
+    toast.success('Post teruggezet naar Finance Meeting');
     fetchData();
   };
 
   const terugzettenBulk = async () => {
     const ids = Array.from(selectedBetaaldIds);
     for (const id of ids) {
+      // Haal ref_id op
+      const { data: ci } = await supabase
+        .from('cashflow_items')
+        .select('ref_id, ref_type')
+        .eq('id', id)
+        .maybeSingle();
+
       await supabase.from('cashflow_items')
         .update({ status: 'actief', goedgekeurd_op: null } as any)
         .eq('id', id);
+
+      // Zet bijbehorende invoice terug op open
+      if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+        await supabase
+          .from('invoices')
+          .update({ status: 'open' } as any)
+          .eq('id', ci.ref_id);
+      }
+
       await supabase.from('audit_log').insert({
         tabel: 'cashflow_items',
         actie: 'status → actief (teruggezet)',
@@ -314,7 +346,7 @@ export default function Betalingsronden() {
         nieuw_waarde: { status: 'actief' },
       });
     }
-    toast.success(`${ids.length} posten teruggezet naar actief`);
+    toast.success(`${ids.length} posten teruggezet naar Finance Meeting`);
     setSelectedBetaaldIds(new Set());
     fetchData();
   };

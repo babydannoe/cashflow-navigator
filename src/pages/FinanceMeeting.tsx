@@ -166,30 +166,49 @@ export default function FinanceMeeting() {
   };
 
   const goedkeurenInvoice = async (item: CashflowItem) => {
-    const { data: cfData, error: cfError } = await supabase
+    // Check of er al een cashflow_item bestaat voor deze invoice
+    const { data: bestaand } = await supabase
       .from('cashflow_items')
-      .insert({
-        bv_id: item.bv_id,
-        week: item.week,
-        type: item.type,
-        bedrag: item.bedrag,
-        omschrijving: item.omschrijving,
-        categorie: item.categorie,
-        subcategorie: item.subcategorie,
-        tegenpartij: item.tegenpartij,
-        bron: item.bron,
-        ref_id: item.ref_id,
-        ref_type: item.ref_type,
-        status: 'goedgekeurd',
-        goedgekeurd_op: new Date().toISOString(),
-      } as any)
       .select('id')
-      .single();
-    if (cfError) { toast.error('Fout: ' + cfError.message); return; }
-    await supabase
-      .from('invoices')
-      .update({ forecast_item_id: cfData.id, import_status: 'imported', status: 'goedgekeurd' } as any)
-      .eq('id', item.ref_id);
+      .eq('ref_id', item.ref_id)
+      .eq('ref_type', 'invoice')
+      .maybeSingle();
+
+    if (bestaand) {
+      // Bestaand item gewoon goedkeuren
+      await supabase
+        .from('cashflow_items')
+        .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
+        .eq('id', bestaand.id);
+    } else {
+      // Nieuw aanmaken
+      const { data: cfData, error: cfError } = await supabase
+        .from('cashflow_items')
+        .insert({
+          bv_id: item.bv_id,
+          week: item.week,
+          type: item.type,
+          bedrag: item.bedrag,
+          omschrijving: item.omschrijving,
+          categorie: item.categorie,
+          subcategorie: item.subcategorie,
+          tegenpartij: item.tegenpartij,
+          bron: item.bron,
+          ref_id: item.ref_id,
+          ref_type: item.ref_type,
+          status: 'goedgekeurd',
+          goedgekeurd_op: new Date().toISOString(),
+        } as any)
+        .select('id')
+        .single();
+      if (cfError) { toast.error('Fout: ' + cfError.message); return; }
+
+      await supabase
+        .from('invoices')
+        .update({ forecast_item_id: cfData.id, import_status: 'imported', status: 'goedgekeurd' } as any)
+        .eq('id', item.ref_id);
+    }
+
     toast.success('Goedgekeurd voor betaling');
     loadData();
   };
