@@ -35,6 +35,7 @@ interface Invoice {
   exact_id: string | null;
   bron: string | null;
   counterparty_id: string | null;
+  boekingsdatum?: string | null;
   counterparties: { id: string; naam: string } | null;
   _suggestRecurring?: boolean;
 }
