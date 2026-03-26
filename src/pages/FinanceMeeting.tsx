@@ -637,7 +637,12 @@ export default function FinanceMeeting() {
                   />
                 )}
               </TableCell>
-              <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
+              <TableCell className="text-sm max-w-[200px] truncate">
+                <div className="flex items-center gap-1">
+                  {item.omschrijving}
+                  {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
+                </div>
+              </TableCell>
               <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
