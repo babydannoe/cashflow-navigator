@@ -426,56 +426,62 @@ export default function ExactImport() {
                 </div>
               </div>
 
-              {/* Editable fields */}
-              <div className="space-y-3">
-                <div>
-                  <Label>Omschrijving</Label>
-                  <Input value={modalOmschrijving} onChange={(e) => setModalOmschrijving(e.target.value)} />
-                </div>
+              {importMode === 'betaald' ? (
+                <p className="text-sm text-muted-foreground">
+                  Weet je zeker dat deze factuur al betaald is? Er wordt een historisch cashflow-item aangemaakt en de factuur verdwijnt uit de inbox.
+                </p>
+              ) : (
+                /* Editable fields for forecast & recurring */
+                <div className="space-y-3">
+                  <div>
+                    <Label>Omschrijving</Label>
+                    <Input value={modalOmschrijving} onChange={(e) => setModalOmschrijving(e.target.value)} />
+                  </div>
 
-                <div>
-                  <Label>Categorie</Label>
-                  <Select value={modalCategorie} onValueChange={setModalCategorie}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Omzet">Omzet</SelectItem>
-                      <SelectItem value="Kosten">Kosten</SelectItem>
-                      <SelectItem value="Recurring kosten">Recurring kosten</SelectItem>
-                      <SelectItem value="Financiering">Financiering</SelectItem>
-                      <SelectItem value="Overig">Overig</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                  <div>
+                    <Label>Categorie</Label>
+                    <Select value={modalCategorie} onValueChange={setModalCategorie}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Omzet">Omzet</SelectItem>
+                        <SelectItem value="Kosten">Kosten</SelectItem>
+                        <SelectItem value="Recurring kosten">Recurring kosten</SelectItem>
+                        <SelectItem value="Financiering">Financiering</SelectItem>
+                        <SelectItem value="Overig">Overig</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                <div>
-                  <Label>Week</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          'w-full justify-start text-left font-normal',
-                          !modalWeek && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {modalWeek ? format(modalWeek, 'dd MMM yyyy', { locale: nl }) : 'Kies een week'}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={modalWeek}
-                        onSelect={(date) => date && setModalWeek(startOfISOWeek(date))}
-                        initialFocus
-                        className={cn('p-3 pointer-events-auto')}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <div>
+                    <Label>Week</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full justify-start text-left font-normal',
+                            !modalWeek && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {modalWeek ? format(modalWeek, 'dd MMM yyyy', { locale: nl }) : 'Kies een week'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={modalWeek}
+                          onSelect={(date) => date && setModalWeek(startOfISOWeek(date))}
+                          initialFocus
+                          className={cn('p-3 pointer-events-auto')}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           <DialogFooter>
