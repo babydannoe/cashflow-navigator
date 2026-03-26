@@ -452,8 +452,8 @@ export default function FinanceMeeting() {
     }
   };
 
-  // ── helper: selectable items (non-recurring with cashflow_item_id) ──
-  const selectableOutItems = outDecision.filter(i => i.cashflow_item_id);
+  // ── helper: selectable items (non-recurring, has cashflow_item_id OR is invoice) ──
+  const selectableOutItems = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
   const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
 
   // ── render helpers ──
