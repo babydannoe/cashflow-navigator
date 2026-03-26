@@ -570,11 +570,15 @@ export default function FinanceMeeting() {
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
               <TableCell>
                 <div className="flex gap-1">
-                  {item.cashflow_item_id && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                  {(item.cashflow_item_id || item.ref_type === 'invoice') && (
+                    <Button variant="ghost" size="icon"
+                      className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
                       onClick={async () => {
-                        if (!item.cashflow_item_id) return;
-                        await goedkeurenBulk([item.cashflow_item_id]);
+                        if (item.cashflow_item_id) {
+                          await goedkeurenBulk([item.cashflow_item_id]);
+                        } else if (item.ref_type === 'invoice') {
+                          await goedkeurenInvoice(item);
+                        }
                       }}
                       title="Goedkeuren voor betaling">
                       <Check className="h-3.5 w-3.5" />
