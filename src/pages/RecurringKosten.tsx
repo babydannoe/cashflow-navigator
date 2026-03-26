@@ -60,6 +60,7 @@ export default function RecurringKosten() {
   const [filterCat, setFilterCat] = useState('all');
   const [filterBron, setFilterBron] = useState('all');
   const [suggestions, setSuggestions] = useState<ReviewSuggestion[]>(mockSuggestions);
+  const [betaaldeRecurring, setBetaaldeRecurring] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     bv_id: '', categorie: 'Abonnement', omschrijving: '', bedrag: '', frequentie: 'maandelijks',
@@ -75,6 +76,22 @@ export default function RecurringKosten() {
   };
 
   useEffect(() => { loadData(); }, [selectedBVId]);
+
+  useEffect(() => {
+    const loadBetaald = async () => {
+      let q = supabase
+        .from('cashflow_items')
+        .select('*')
+        .eq('bron', 'exact_import')
+        .eq('categorie', 'Recurring kosten')
+        .eq('status', 'betaald')
+        .order('week', { ascending: false });
+      if (selectedBVId) q = q.eq('bv_id', selectedBVId);
+      const { data } = await q;
+      setBetaaldeRecurring(data || []);
+    };
+    loadBetaald();
+  }, [selectedBVId]);
 
   const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
@@ -180,6 +197,7 @@ export default function RecurringKosten() {
         <TabsList>
           <TabsTrigger value="actief">Actieve regels</TabsTrigger>
           <TabsTrigger value="review">Review voorstellen</TabsTrigger>
+          <TabsTrigger value="betaald">Betaalde recurring</TabsTrigger>
         </TabsList>
 
         <TabsContent value="actief" className="space-y-4">
@@ -350,6 +368,41 @@ export default function RecurringKosten() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="betaald" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Betaalde recurring posten</CardTitle>
+              <p className="text-sm text-muted-foreground">Facturen die via Exact Import als recurring zijn gemarkeerd en betaald.</p>
+            </CardHeader>
+            <CardContent>
+              {betaaldeRecurring.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-6 text-center">Geen betaalde recurring posten gevonden.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Omschrijving</TableHead>
+                      <TableHead>BV</TableHead>
+                      <TableHead>Week</TableHead>
+                      <TableHead className="text-right">Bedrag</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {betaaldeRecurring.map((item: any) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.omschrijving ?? '—'}</TableCell>
+                        <TableCell>{bvs.find(b => b.id === item.bv_id)?.naam ?? '—'}</TableCell>
+                        <TableCell>{item.week ?? '—'}</TableCell>
+                        <TableCell className="text-right">{fmt(item.bedrag || 0)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
