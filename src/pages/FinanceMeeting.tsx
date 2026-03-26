@@ -231,6 +231,8 @@ export default function FinanceMeeting() {
 
       const items: CashflowItem[] = (data.cashflowItems || []).filter(
         (i: CashflowItem) => i.week === currentWeekDate
+          && i.status !== 'goedgekeurd'
+          && i.status !== 'betaald'
       );
       setCashflowItems(items);
       setOpeningBalance(data.openingBalance ?? 0);
