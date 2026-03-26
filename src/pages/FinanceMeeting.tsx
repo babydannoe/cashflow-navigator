@@ -146,6 +146,47 @@ export default function FinanceMeeting() {
     loadData();
   };
 
+  const goedkeurenInvoice = async (item: CashflowItem) => {
+    const { data: cfData, error: cfError } = await supabase
+      .from('cashflow_items')
+      .insert({
+        bv_id: item.bv_id,
+        week: item.week,
+        type: item.type,
+        bedrag: item.bedrag,
+        omschrijving: item.omschrijving,
+        categorie: item.categorie,
+        subcategorie: item.subcategorie,
+        tegenpartij: item.tegenpartij,
+        bron: item.bron,
+        ref_id: item.ref_id,
+        ref_type: item.ref_type,
+        status: 'goedgekeurd',
+        goedgekeurd_op: new Date().toISOString(),
+      } as any)
+      .select('id')
+      .single();
+    if (cfError) { toast.error('Fout: ' + cfError.message); return; }
+    await supabase
+      .from('invoices')
+      .update({ forecast_item_id: cfData.id, import_status: 'imported' } as any)
+      .eq('id', item.ref_id);
+    toast.success('Goedgekeurd voor betaling');
+    loadData();
+  };
+
+  const checkOntvangen = async (item: CashflowItem) => {
+    const id = item.cashflow_item_id;
+    if (!id) return;
+    const { error } = await supabase
+      .from('cashflow_items')
+      .update({ status: 'ontvangen', goedgekeurd_op: new Date().toISOString() } as any)
+      .eq('id', id);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    toast.success('Gemarkeerd als ontvangen');
+    loadData();
+  };
+
   const verschuifBulk = async (ids: string[]) => {
     for (const id of ids) {
       const item = cashflowItems.find(i => i.cashflow_item_id === id);
