@@ -197,6 +197,7 @@ export default function RecurringKosten() {
         <TabsList>
           <TabsTrigger value="actief">Actieve regels</TabsTrigger>
           <TabsTrigger value="review">Review voorstellen</TabsTrigger>
+          <TabsTrigger value="betaald">Betaalde recurring</TabsTrigger>
         </TabsList>
 
         <TabsContent value="actief" className="space-y-4">
