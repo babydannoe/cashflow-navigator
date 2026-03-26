@@ -770,7 +770,7 @@ export default function FinanceMeeting() {
                   <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={async () => {
                       for (const id of selectedInIds) {
-                        const item = inItems.find(i => i.cashflow_item_id === id);
+                        const item = inItems.find(i => getSelectKey(i) === id);
                         if (item) await checkOntvangen(item);
                       }
                       setSelectedIds(new Set());
