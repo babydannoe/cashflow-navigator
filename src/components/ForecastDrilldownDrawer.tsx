@@ -37,6 +37,7 @@ export interface DrilldownItem {
   kans_percentage?: number;
   frequentie?: string;
   cashflow_item_id?: string;
+  opmerking?: string | null;
 }
 
 interface Props {
@@ -82,9 +83,35 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
       setTegenpartij(item.tegenpartij || '');
       setBvId(item.bv_id || '');
       setType(item.type === 'in' ? 'in' : 'out');
-      setOpmerking('');
     }
   }, [item, isNew, open, bvs]);
+
+  // Load opmerking from DB when opening existing item
+  useEffect(() => {
+    if (isNew || !item || !open) return;
+
+    const laadOpmerking = async () => {
+      if (item.cashflow_item_id) {
+        const { data } = await supabase
+          .from('cashflow_items')
+          .select('opmerking')
+          .eq('id', item.cashflow_item_id)
+          .maybeSingle();
+        setOpmerking((data as any)?.opmerking || '');
+      } else if (item.ref_type === 'invoice' && item.ref_id) {
+        const { data } = await supabase
+          .from('invoices')
+          .select('opmerking')
+          .eq('id', item.ref_id)
+          .maybeSingle();
+        setOpmerking((data as any)?.opmerking || '');
+      } else {
+        setOpmerking('');
+      }
+    };
+
+    laadOpmerking();
+  }, [item?.cashflow_item_id, item?.ref_id, open, isNew]);
 
   const handleSave = async () => {
     if (!bvId || !bedrag) {
@@ -108,7 +135,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           tegenpartij,
           bron: 'handmatig',
           ref_type: 'handmatig',
-        });
+          opmerking: opmerking || null,
+        } as any);
         if (error) throw error;
         toast.success('Nieuwe post toegevoegd');
       } else if (item?.ref_type === 'invoice' && item?.ref_id) {
@@ -116,7 +144,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         const { error } = await supabase.from('invoices').update({
           bedrag: Math.abs(parseFloat(bedrag)),
           vervaldatum: vervaldatum ? format(vervaldatum, 'yyyy-MM-dd') : null,
-        }).eq('id', item.ref_id);
+          opmerking: opmerking || null,
+        } as any).eq('id', item.ref_id);
         if (error) throw error;
         toast.success('Factuur bijgewerkt');
       } else if (item?.cashflow_item_id) {
@@ -130,7 +159,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           week: weekDate,
           type,
           bv_id: bvId,
-        }).eq('id', item.cashflow_item_id);
+          opmerking: opmerking || null,
+        } as any).eq('id', item.cashflow_item_id);
         if (error) throw error;
         toast.success('Post bijgewerkt');
       } else {
@@ -146,7 +176,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           tegenpartij,
           bron: 'handmatig',
           ref_type: 'handmatig',
-        });
+          opmerking: opmerking || null,
+        } as any);
         if (error) throw error;
         toast.success('Post opgeslagen');
       }
@@ -316,7 +347,10 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
 
           {/* Opmerking */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Opmerking (optioneel)</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Opmerking (optioneel)
+              {opmerking && <span className="text-base leading-none">💬</span>}
+            </Label>
             <Textarea value={opmerking} onChange={e => setOpmerking(e.target.value)} placeholder="Extra info..." rows={2} className="text-sm" />
           </div>
 

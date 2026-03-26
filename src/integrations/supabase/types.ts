@@ -210,6 +210,7 @@ export type Database = {
           goedgekeurd_op: string | null
           id: string
           omschrijving: string | null
+          opmerking: string | null
           ref_id: string | null
           ref_type: string | null
           status: string | null
@@ -226,6 +227,7 @@ export type Database = {
           goedgekeurd_op?: string | null
           id?: string
           omschrijving?: string | null
+          opmerking?: string | null
           ref_id?: string | null
           ref_type?: string | null
           status?: string | null
@@ -242,6 +244,7 @@ export type Database = {
           goedgekeurd_op?: string | null
           id?: string
           omschrijving?: string | null
+          opmerking?: string | null
           ref_id?: string | null
           ref_type?: string | null
           status?: string | null
@@ -416,6 +419,7 @@ export type Database = {
           import_status: string | null
           imported_at: string | null
           laatste_sync: string | null
+          opmerking: string | null
           status: string | null
           type: string | null
           vervaldatum: string | null
@@ -434,6 +438,7 @@ export type Database = {
           import_status?: string | null
           imported_at?: string | null
           laatste_sync?: string | null
+          opmerking?: string | null
           status?: string | null
           type?: string | null
           vervaldatum?: string | null
@@ -452,6 +457,7 @@ export type Database = {
           import_status?: string | null
           imported_at?: string | null
           laatste_sync?: string | null
+          opmerking?: string | null
           status?: string | null
           type?: string | null
           vervaldatum?: string | null

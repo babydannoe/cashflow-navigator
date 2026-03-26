@@ -74,6 +74,7 @@ interface CashflowItem {
   vervaldatum?: string;
   kans_percentage?: number;
   frequentie?: string;
+  opmerking?: string | null;
 }
 
 interface PipelineItem {
@@ -536,7 +537,12 @@ export default function FinanceMeeting() {
                     />
                   )}
                 </TableCell>
-                <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
+                <TableCell className="text-sm max-w-[200px] truncate">
+                  <div className="flex items-center gap-1">
+                    {item.omschrijving}
+                    {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
+                  </div>
+                </TableCell>
                 <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1.5">
@@ -631,7 +637,12 @@ export default function FinanceMeeting() {
                   />
                 )}
               </TableCell>
-              <TableCell className="text-sm max-w-[200px] truncate">{item.omschrijving}</TableCell>
+              <TableCell className="text-sm max-w-[200px] truncate">
+                <div className="flex items-center gap-1">
+                  {item.omschrijving}
+                  {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
+                </div>
+              </TableCell>
               <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
@@ -689,6 +700,7 @@ export default function FinanceMeeting() {
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                   {item.omschrijving}
+                  {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
               <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
