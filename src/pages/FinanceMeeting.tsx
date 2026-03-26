@@ -102,6 +102,7 @@ export default function FinanceMeeting() {
 
   // Tab 1 state
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
+  const [totaalGoedgekeurd, setTotaalGoedgekeurd] = useState(0);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [editingSaldoId, setEditingSaldoId] = useState<string | null>(null);
@@ -273,6 +274,17 @@ export default function FinanceMeeting() {
           && i.status !== 'betaald'
       );
       setCashflowItems(items);
+
+      // Haal totaal goedgekeurde posten op uit betalingsronde
+      const { data: goedgekeurdData } = await supabase
+        .from('cashflow_items')
+        .select('bedrag, bv_id')
+        .eq('status', 'goedgekeurd')
+        .eq('type', 'out')
+        .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
+
+      const totaal = (goedgekeurdData || []).reduce((s: number, i: any) => s + Number(i.bedrag || 0), 0);
+      setTotaalGoedgekeurd(totaal);
       setOpeningBalance(data.openingBalance ?? 0);
 
       // Bank accounts
@@ -340,7 +352,7 @@ export default function FinanceMeeting() {
   const outRecurring = outItems.filter(i => i.bron === 'recurring');
   const totalDecision = outDecision.reduce((s, i) => s + i.bedrag, 0);
   const totalRecurring = outRecurring.reduce((s, i) => s + i.bedrag, 0);
-  const totalOut = outItems.reduce((s, i) => s + i.bedrag, 0);
+  const totalOut = outItems.reduce((s, i) => s + i.bedrag, 0) + totaalGoedgekeurd;
   const totalIn = inItems.reduce((s, i) => s + i.bedrag, 0);
   const expectedClosing = openingBalance + totalIn - totalOut;
 
@@ -701,6 +713,36 @@ export default function FinanceMeeting() {
               </TableCell>
             </TableRow>
           ))}
+          {/* Scheidingslijn goedgekeurd */}
+          {totaalGoedgekeurd > 0 && (
+            <>
+              <TableRow className="border-0 hover:bg-transparent">
+                <TableCell colSpan={6} className="py-2 px-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex-1 border-t border-border" />
+                    <Check className="h-3 w-3" />
+                    <span>Goedgekeurd voor betaling</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                </TableCell>
+              </TableRow>
+              <TableRow className="bg-emerald-500/5 hover:bg-emerald-500/10">
+                <TableCell />
+                <TableCell className="text-sm max-w-[200px] truncate">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="h-3 w-3 text-emerald-600 shrink-0" />
+                    <span className="text-muted-foreground">Totaal goedgekeurd voor betaling</span>
+                  </div>
+                </TableCell>
+                <TableCell><Badge variant="secondary" className="text-xs">Betalingsronde</Badge></TableCell>
+                <TableCell colSpan={1} />
+                <TableCell className={cn('text-right font-mono text-sm', colorClass)}>
+                  − {fmt(totaalGoedgekeurd)}
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </>
+          )}
         </TableBody>
         <TableFooter>
           <TableRow>
@@ -714,6 +756,14 @@ export default function FinanceMeeting() {
               <TableCell />
               <TableCell colSpan={3} className="text-sm text-muted-foreground">Vaste lasten</TableCell>
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totalRecurring)}</TableCell>
+              <TableCell />
+            </TableRow>
+          )}
+          {totaalGoedgekeurd > 0 && (
+            <TableRow>
+              <TableCell />
+              <TableCell colSpan={3} className="text-sm text-muted-foreground">Goedgekeurd voor betaling</TableCell>
+              <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(totaalGoedgekeurd)}</TableCell>
               <TableCell />
             </TableRow>
           )}
