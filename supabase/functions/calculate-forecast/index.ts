@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
       supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open").eq("import_status", "imported"),
       supabase.from("mt_pipeline_items").select("*").in("bv_id", bvIds),
       supabase.from("recurring_rules").select("*").in("bv_id", bvIds).eq("actief", true),
-      supabase.from("cashflow_items").select("*").in("bv_id", bvIds).neq("status", "betaald"),
+      supabase.from("cashflow_items").select("*").in("bv_id", bvIds).eq("status", "actief"),
       supabase.from("counterparties").select("*"),
       supabase.from("bv").select("*").in("id", bvIds),
       supabase.from("cashflow_items").select("ref_id, week").in("bv_id", bvIds).eq("bron", "recurring").eq("status", "betaald"),
