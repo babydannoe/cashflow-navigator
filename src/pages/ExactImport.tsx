@@ -214,18 +214,8 @@ export default function ExactImport() {
           .update({ import_status: 'imported', imported_at: new Date().toISOString(), forecast_item_id: cfData?.id } as any)
           .eq('id', inv.id);
       } else if (mode === 'recurring') {
-        await supabase.from('recurring_rules').insert({
-          bv_id: inv.bv_id,
-          omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
-          bedrag: Math.abs(inv.bedrag),
-          frequentie: 'maandelijks',
-          categorie: 'Recurring kosten',
-          actief: true,
-          bron: 'exact_import',
-          verwachte_betaaldag: inv.vervaldatum ? new Date(inv.vervaldatum).getDate() : 1,
-        });
         await supabase.from('invoices')
-          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .update({ import_status: 'recurring_exact' } as any)
           .eq('id', inv.id);
       }
     }
