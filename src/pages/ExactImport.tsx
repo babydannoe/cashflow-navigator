@@ -183,7 +183,7 @@ export default function ExactImport() {
     for (const inv of selectedInvoices) {
       if (mode === 'al_in_forecast') {
         await supabase.from('invoices')
-          .update({ import_status: 'imported', imported_at: new Date().toISOString() } as any)
+          .update({ import_status: 'dismissed' } as any)
           .eq('id', inv.id);
       } else if (mode === 'betaald') {
         await supabase.from('cashflow_items').insert({
