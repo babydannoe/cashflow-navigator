@@ -187,6 +187,26 @@ export default function FinanceMeeting() {
     loadData();
   };
 
+  const betaalRecurring = async (item: CashflowItem) => {
+    const { error } = await supabase.from('cashflow_items').insert({
+      bv_id: item.bv_id,
+      week: item.week,
+      type: 'out',
+      bedrag: item.bedrag,
+      omschrijving: item.omschrijving,
+      categorie: item.categorie,
+      tegenpartij: item.tegenpartij,
+      bron: 'recurring',
+      ref_id: item.ref_id,
+      ref_type: 'recurring_rule',
+      status: 'betaald',
+      goedgekeurd_op: new Date().toISOString(),
+    } as any);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    toast.success(`${item.omschrijving} gemarkeerd als betaald`);
+    loadData();
+  };
+
   const verschuifBulk = async (ids: string[]) => {
     for (const id of ids) {
       const item = cashflowItems.find(i => i.cashflow_item_id === id);
