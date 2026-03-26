@@ -431,6 +431,14 @@ export default function ExactImport() {
                               >
                                 <RefreshCw className="h-3.5 w-3.5 mr-1" /> Recurring
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-muted-foreground border-border hover:bg-muted"
+                                onClick={() => alInForecastMutation.mutate(inv.id)}
+                              >
+                                <X className="h-3.5 w-3.5 mr-1" /> Al in forecast
+                              </Button>
                             </div>
                           )}
                         </TableCell>
