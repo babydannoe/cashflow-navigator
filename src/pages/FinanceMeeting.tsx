@@ -127,6 +127,8 @@ export default function FinanceMeeting() {
   const currentWeekDate = format(weekStart, 'yyyy-MM-dd');
 
   // ── approval helpers ──
+  const getSelectKey = (item: CashflowItem) => item.cashflow_item_id ?? item.ref_id;
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
