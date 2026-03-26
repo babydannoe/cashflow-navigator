@@ -228,7 +228,7 @@ export default function FinanceMeeting() {
 
   const verschuifBulk = async (ids: string[]) => {
     for (const id of ids) {
-      const item = cashflowItems.find(i => i.cashflow_item_id === id);
+      const item = cashflowItems.find(i => getSelectKey(i) === id);
       if (!item || item.ref_type === 'recurring_rule') continue;
       const newWeek = format(addDays(new Date(item.week), 7), 'yyyy-MM-dd');
       await supabase.from('cashflow_items').update({ week: newWeek }).eq('id', id);
