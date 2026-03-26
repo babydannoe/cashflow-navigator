@@ -51,7 +51,7 @@ export default function ExactImport() {
   const [selectedBvId, setSelectedBvId] = useState<string>(bvs[0]?.id ?? '');
   const [activeTab, setActiveTab] = useState<'AR' | 'AP'>('AR');
   const [importModal, setImportModal] = useState<Invoice | null>(null);
-  const [importMode, setImportMode] = useState<'forecast' | 'recurring'>('forecast');
+  const [importMode, setImportMode] = useState<'forecast' | 'recurring' | 'betaald'>('forecast');
   const [syncing, setSyncing] = useState(false);
 
   // Modal form state
