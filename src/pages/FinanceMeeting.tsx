@@ -127,6 +127,8 @@ export default function FinanceMeeting() {
   const currentWeekDate = format(weekStart, 'yyyy-MM-dd');
 
   // ── approval helpers ──
+  const getSelectKey = (item: CashflowItem) => item.cashflow_item_id ?? item.ref_id;
+
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -136,11 +138,28 @@ export default function FinanceMeeting() {
   };
 
   const goedkeurenBulk = async (ids: string[]) => {
-    const { error } = await supabase
-      .from('cashflow_items')
-      .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
-      .in('id', ids);
-    if (error) { toast.error('Fout: ' + error.message); return; }
+    // Cashflow items direct updaten
+    const cfIds = ids.filter(id =>
+      outItems.some(i => i.cashflow_item_id === id)
+    );
+    if (cfIds.length > 0) {
+      const { error } = await supabase
+        .from('cashflow_items')
+        .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
+        .in('id', cfIds);
+      if (error) { toast.error('Fout: ' + error.message); return; }
+    }
+
+    // Invoice-items zonder cashflow_item_id via goedkeurenInvoice
+    const invoiceItems = outItems.filter(i =>
+      !i.cashflow_item_id &&
+      i.ref_type === 'invoice' &&
+      ids.includes(i.ref_id)
+    );
+    for (const item of invoiceItems) {
+      await goedkeurenInvoice(item);
+    }
+
     toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} goedgekeurd voor betaling`);
     setSelectedIds(new Set());
     loadData();
@@ -169,7 +188,7 @@ export default function FinanceMeeting() {
     if (cfError) { toast.error('Fout: ' + cfError.message); return; }
     await supabase
       .from('invoices')
-      .update({ forecast_item_id: cfData.id, import_status: 'imported' } as any)
+      .update({ forecast_item_id: cfData.id, import_status: 'imported', status: 'goedgekeurd' } as any)
       .eq('id', item.ref_id);
     toast.success('Goedgekeurd voor betaling');
     loadData();
@@ -209,7 +228,7 @@ export default function FinanceMeeting() {
 
   const verschuifBulk = async (ids: string[]) => {
     for (const id of ids) {
-      const item = cashflowItems.find(i => i.cashflow_item_id === id);
+      const item = cashflowItems.find(i => getSelectKey(i) === id);
       if (!item || item.ref_type === 'recurring_rule') continue;
       const newWeek = format(addDays(new Date(item.week), 7), 'yyyy-MM-dd');
       await supabase.from('cashflow_items').update({ week: newWeek }).eq('id', id);
@@ -433,8 +452,8 @@ export default function FinanceMeeting() {
     }
   };
 
-  // ── helper: selectable items (non-recurring with cashflow_item_id) ──
-  const selectableOutItems = outDecision.filter(i => i.cashflow_item_id);
+  // ── helper: selectable items (non-recurring, has cashflow_item_id OR is invoice) ──
+  const selectableOutItems = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
   const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
 
   // ── render helpers ──
@@ -537,8 +556,8 @@ export default function FinanceMeeting() {
 
   const renderOutTable = () => {
     const colorClass = 'text-destructive';
-    const allSelectableOut = outDecision.filter(i => i.cashflow_item_id);
-    const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(i.cashflow_item_id!));
+    const allSelectableOut = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
+    const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(getSelectKey(i)));
     return (
       <Table>
         <TableHeader>
@@ -550,9 +569,9 @@ export default function FinanceMeeting() {
                   onCheckedChange={() => {
                     const next = new Set(selectedIds);
                     if (allOutSelected) {
-                      allSelectableOut.forEach(i => next.delete(i.cashflow_item_id!));
+                      allSelectableOut.forEach(i => next.delete(getSelectKey(i)));
                     } else {
-                      allSelectableOut.forEach(i => next.add(i.cashflow_item_id!));
+                      allSelectableOut.forEach(i => next.add(getSelectKey(i)));
                     }
                     setSelectedIds(next);
                   }}
@@ -574,10 +593,10 @@ export default function FinanceMeeting() {
           {outDecision.map((item, idx) => (
             <TableRow key={`dec-${item.ref_id}-${idx}`}>
               <TableCell className="w-8">
-                {item.cashflow_item_id && (
+              {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
-                    checked={selectedIds.has(item.cashflow_item_id)}
-                    onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
+                    checked={selectedIds.has(getSelectKey(item))}
+                    onCheckedChange={() => toggleSelect(getSelectKey(item))}
                   />
                 )}
               </TableCell>
@@ -733,10 +752,10 @@ export default function FinanceMeeting() {
           {/* Bulk action bar */}
           {selectedIds.size > 0 && (() => {
             const selectedOutIds = Array.from(selectedIds).filter(id =>
-              outItems.some(i => i.cashflow_item_id === id)
+              outItems.some(i => getSelectKey(i) === id)
             );
             const selectedInIds = Array.from(selectedIds).filter(id =>
-              inItems.some(i => i.cashflow_item_id === id)
+              inItems.some(i => getSelectKey(i) === id)
             );
             return (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
@@ -751,7 +770,7 @@ export default function FinanceMeeting() {
                   <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
                     onClick={async () => {
                       for (const id of selectedInIds) {
-                        const item = inItems.find(i => i.cashflow_item_id === id);
+                        const item = inItems.find(i => getSelectKey(i) === id);
                         if (item) await checkOntvangen(item);
                       }
                       setSelectedIds(new Set());
