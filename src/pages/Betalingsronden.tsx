@@ -402,6 +402,11 @@ export default function Betalingsronden() {
                         </TableRow>
                       );
                     })}
+                    <TableRow className="bg-muted/50 font-medium border-t-2">
+                      <TableCell colSpan={4} className="text-sm">Totaal ({goedgekeurdItems.length} posten)</TableCell>
+                      <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(goedgekeurdItems.reduce((s, i) => s + i.bedrag, 0))}</TableCell>
+                      <TableCell />
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
@@ -447,6 +452,11 @@ export default function Betalingsronden() {
                           </TableRow>
                         );
                       })}
+                      <TableRow className="bg-muted/50 font-medium border-t-2">
+                        <TableCell colSpan={3} className="text-sm">Totaal ({invoices.length} facturen)</TableCell>
+                        <TableCell className="text-right font-mono text-sm">{fmt(invoices.reduce((s, i) => s + i.bedrag, 0))}</TableCell>
+                        <TableCell />
+                      </TableRow>
                     </TableBody>
                   </Table>
                   {isAdmin && selected.size > 0 && (
@@ -504,6 +514,14 @@ export default function Betalingsronden() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="bg-muted/50 font-medium border-t-2">
+                      <TableCell className="text-sm">Totaal ({paymentRuns.length} rondes)</TableCell>
+                      <TableCell />
+                      <TableCell className="text-right font-mono text-sm">{fmt(paymentRuns.reduce((s, r) => s + (r.totaal_bedrag || 0), 0))}</TableCell>
+                      <TableCell className="text-right text-sm">{paymentRuns.reduce((s, r) => s + (r.aantal_facturen || 0), 0)}</TableCell>
+                      <TableCell />
+                      <TableCell />
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
