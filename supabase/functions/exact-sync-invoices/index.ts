@@ -187,6 +187,26 @@ Deno.serve(async (req) => {
         console.error(`AR sync error for ${currentBvId}:`, err);
       }
 
+      // ── Haal aanmaakdatums op uit PurchaseEntries ──
+      const createdMap = new Map<number, string>();
+      try {
+        const createdItems = await fetchExactPaginated(
+          `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$select=EntryNumber,Created&$top=250&$orderby=Created desc`,
+          access_token
+        );
+        for (const item of createdItems) {
+          if (item.EntryNumber && item.Created) {
+            const parsed = parseInt(item.Created.replace(/\/Date\((\d+)\)\//, "$1"));
+            const date = isNaN(parsed)
+              ? new Date(item.Created).toISOString().split("T")[0]
+              : new Date(parsed).toISOString().split("T")[0];
+            createdMap.set(item.EntryNumber, date);
+          }
+        }
+      } catch (err) {
+        console.error(`Created map error for ${currentBvId}:`, err);
+      }
+
       // ── Purchase Invoices (AP) via PayablesList ──
       let apRecords: any[] = [];
       try {
@@ -211,6 +231,7 @@ Deno.serve(async (req) => {
             boekingsdatum: item.InvoiceDate
               ? new Date(parseInt(item.InvoiceDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
               : null,
+            aangemaakt_in_exact: createdMap.get(item.EntryNumber) ?? null,
             status: "open",
             laatste_sync: new Date().toISOString(),
             counterparty_naam: item.AccountName ?? null,
