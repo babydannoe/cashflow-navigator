@@ -602,10 +602,18 @@ export default function Betalingsronden() {
                     className="h-8 w-48 text-sm"
                   />
                   {selectedBetaaldIds.size > 0 && (
-                    <Button size="sm" variant="outline" onClick={terugzettenBulk}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Terugzetten ({selectedBetaaldIds.size})
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={terugzettenBulk}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                        Terugzetten ({selectedBetaaldIds.size})
+                      </Button>
+                      <Button size="sm" variant="outline"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={verwijderenBulk}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Verwijderen ({selectedBetaaldIds.size})
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
