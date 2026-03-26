@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
-  RefreshCw, ArrowRight, Pencil, Plus, X, CalendarIcon, Save, Lock, Check,
+  RefreshCw, ArrowRight, Pencil, Plus, X, CalendarIcon, Save, Lock, Check, PackageCheck,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -143,6 +143,47 @@ export default function FinanceMeeting() {
     if (error) { toast.error('Fout: ' + error.message); return; }
     toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} goedgekeurd voor betaling`);
     setSelectedIds(new Set());
+    loadData();
+  };
+
+  const goedkeurenInvoice = async (item: CashflowItem) => {
+    const { data: cfData, error: cfError } = await supabase
+      .from('cashflow_items')
+      .insert({
+        bv_id: item.bv_id,
+        week: item.week,
+        type: item.type,
+        bedrag: item.bedrag,
+        omschrijving: item.omschrijving,
+        categorie: item.categorie,
+        subcategorie: item.subcategorie,
+        tegenpartij: item.tegenpartij,
+        bron: item.bron,
+        ref_id: item.ref_id,
+        ref_type: item.ref_type,
+        status: 'goedgekeurd',
+        goedgekeurd_op: new Date().toISOString(),
+      } as any)
+      .select('id')
+      .single();
+    if (cfError) { toast.error('Fout: ' + cfError.message); return; }
+    await supabase
+      .from('invoices')
+      .update({ forecast_item_id: cfData.id, import_status: 'imported' } as any)
+      .eq('id', item.ref_id);
+    toast.success('Goedgekeurd voor betaling');
+    loadData();
+  };
+
+  const checkOntvangen = async (item: CashflowItem) => {
+    const id = item.cashflow_item_id;
+    if (!id) return;
+    const { error } = await supabase
+      .from('cashflow_items')
+      .update({ status: 'ontvangen', goedgekeurd_op: new Date().toISOString() } as any)
+      .eq('id', id);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    toast.success('Gemarkeerd als ontvangen');
     loadData();
   };
 
@@ -437,14 +478,12 @@ export default function FinanceMeeting() {
                 <TableCell>
                   {!isViewer && (
                     <div className="flex gap-1">
-                      {isSelectable && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
-                          onClick={async () => {
-                            if (!item.cashflow_item_id) return;
-                            await goedkeurenBulk([item.cashflow_item_id]);
-                          }}
-                          title="Goedkeuren voor betaling">
-                          <Check className="h-3.5 w-3.5" />
+                      {isSelectable && type === 'in' && (
+                        <Button variant="ghost" size="icon"
+                          className="h-7 w-7 hover:bg-blue-500 hover:text-white transition-colors"
+                          onClick={() => checkOntvangen(item)}
+                          title="Check ontvangen">
+                          <PackageCheck className="h-3.5 w-3.5" />
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleShiftWeek(item)} title="→ 1 week">
@@ -531,11 +570,15 @@ export default function FinanceMeeting() {
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
               <TableCell>
                 <div className="flex gap-1">
-                  {item.cashflow_item_id && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                  {(item.cashflow_item_id || item.ref_type === 'invoice') && (
+                    <Button variant="ghost" size="icon"
+                      className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
                       onClick={async () => {
-                        if (!item.cashflow_item_id) return;
-                        await goedkeurenBulk([item.cashflow_item_id]);
+                        if (item.cashflow_item_id) {
+                          await goedkeurenBulk([item.cashflow_item_id]);
+                        } else if (item.ref_type === 'invoice') {
+                          await goedkeurenInvoice(item);
+                        }
                       }}
                       title="Goedkeuren voor betaling">
                       <Check className="h-3.5 w-3.5" />
@@ -655,23 +698,45 @@ export default function FinanceMeeting() {
         {/* ── TAB 1: Deze week ── */}
         <TabsContent value="deze-week" className="space-y-4 mt-4">
           {/* Bulk action bar */}
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg">
-              <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
-              <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
-                onClick={() => goedkeurenBulk(Array.from(selectedIds))}>
-                <Check className="h-3.5 w-3.5 mr-1" /> Goedkeuren voor betaling
-              </Button>
-              <Button size="sm" variant="outline" className="h-8"
-                onClick={() => verschuifBulk(Array.from(selectedIds))}>
-                <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
-              </Button>
-              <Button size="sm" variant="ghost" className="h-8 ml-auto"
-                onClick={() => setSelectedIds(new Set())}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+          {selectedIds.size > 0 && (() => {
+            const selectedOutIds = Array.from(selectedIds).filter(id =>
+              outItems.some(i => i.cashflow_item_id === id)
+            );
+            const selectedInIds = Array.from(selectedIds).filter(id =>
+              inItems.some(i => i.cashflow_item_id === id)
+            );
+            return (
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
+                <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
+                {selectedOutIds.length > 0 && (
+                  <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => goedkeurenBulk(selectedOutIds)}>
+                    <Check className="h-3.5 w-3.5 mr-1" /> Goedkeuren voor betaling
+                  </Button>
+                )}
+                {selectedInIds.length > 0 && (
+                  <Button size="sm" className="h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={async () => {
+                      for (const id of selectedInIds) {
+                        const item = inItems.find(i => i.cashflow_item_id === id);
+                        if (item) await checkOntvangen(item);
+                      }
+                      setSelectedIds(new Set());
+                    }}>
+                    <PackageCheck className="h-3.5 w-3.5 mr-1" /> Check ontvangen
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="h-8"
+                  onClick={() => verschuifBulk(Array.from(selectedIds))}>
+                  <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
+                </Button>
+                <Button size="sm" variant="ghost" className="h-8 ml-auto"
+                  onClick={() => setSelectedIds(new Set())}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
