@@ -593,10 +593,10 @@ export default function FinanceMeeting() {
           {outDecision.map((item, idx) => (
             <TableRow key={`dec-${item.ref_id}-${idx}`}>
               <TableCell className="w-8">
-                {item.cashflow_item_id && (
+              {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
-                    checked={selectedIds.has(item.cashflow_item_id)}
-                    onCheckedChange={() => toggleSelect(item.cashflow_item_id!)}
+                    checked={selectedIds.has(getSelectKey(item))}
+                    onCheckedChange={() => toggleSelect(getSelectKey(item))}
                   />
                 )}
               </TableCell>
