@@ -102,6 +102,7 @@ export default function FinanceMeeting() {
 
   // Tab 1 state
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
+  const [totaalGoedgekeurd, setTotaalGoedgekeurd] = useState(0);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [editingSaldoId, setEditingSaldoId] = useState<string | null>(null);
