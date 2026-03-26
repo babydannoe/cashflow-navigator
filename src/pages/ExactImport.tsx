@@ -365,7 +365,7 @@ export default function ExactImport() {
                                 size="sm"
                                 variant="outline"
                                 className="text-blue-600 border-blue-500/30 hover:bg-blue-500/10"
-                                onClick={() => markeerBetaald(inv)}
+                                onClick={() => openImportModal(inv, 'betaald')}
                               >
                                 <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Reeds betaald
                               </Button>
