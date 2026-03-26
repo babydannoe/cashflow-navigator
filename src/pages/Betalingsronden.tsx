@@ -319,6 +319,33 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  const verwijderenEnkel = async (id: string) => {
+    if (!confirm('Weet je zeker dat je deze post permanent wilt verwijderen?')) return;
+    const { error } = await supabase.from('cashflow_items').delete().eq('id', id);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items', actie: 'DELETE', record_id: id,
+      oud_waarde: { status: 'betaald' }, nieuw_waarde: null,
+    });
+    toast.success('Post verwijderd');
+    fetchData();
+  };
+
+  const verwijderenBulk = async () => {
+    if (!confirm(`Weet je zeker dat je ${selectedBetaaldIds.size} posten permanent wilt verwijderen?`)) return;
+    const ids = Array.from(selectedBetaaldIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items').delete().eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items', actie: 'DELETE', record_id: id,
+        oud_waarde: { status: 'betaald' }, nieuw_waarde: null,
+      });
+    }
+    toast.success(`${ids.length} posten verwijderd`);
+    setSelectedBetaaldIds(new Set());
+    fetchData();
+  };
+
   const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
 
   const STATUS_BADGE: Record<string, string> = {
@@ -575,10 +602,18 @@ export default function Betalingsronden() {
                     className="h-8 w-48 text-sm"
                   />
                   {selectedBetaaldIds.size > 0 && (
-                    <Button size="sm" variant="outline" onClick={terugzettenBulk}>
-                      <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                      Terugzetten ({selectedBetaaldIds.size})
-                    </Button>
+                    <>
+                      <Button size="sm" variant="outline" onClick={terugzettenBulk}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                        Terugzetten ({selectedBetaaldIds.size})
+                      </Button>
+                      <Button size="sm" variant="outline"
+                        className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                        onClick={verwijderenBulk}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Verwijderen ({selectedBetaaldIds.size})
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
@@ -652,13 +687,19 @@ export default function Betalingsronden() {
                               − {fmt(item.bedrag)}
                             </TableCell>
                             <TableCell>
-                              <Button size="sm" variant="outline" className="h-7"
-                                onClick={() => terugzettenEnkel(item.id)}
-                                title="Terugzetten naar actief"
-                              >
-                                <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                                Terugzetten
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" className="h-7 text-muted-foreground"
+                                  onClick={() => terugzettenEnkel(item.id)}
+                                  title="Terugzetten naar Finance Meeting">
+                                  <RotateCcw className="h-3.5 w-3.5 mr-1" /> Terugzetten
+                                </Button>
+                                <Button size="sm" variant="outline"
+                                  className="h-7 text-destructive border-destructive/30 hover:bg-destructive/10"
+                                  onClick={() => verwijderenEnkel(item.id)}
+                                  title="Permanent verwijderen">
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
