@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw } from 'lucide-react';
+import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
