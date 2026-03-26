@@ -169,7 +169,7 @@ export default function FinanceMeeting() {
     if (cfError) { toast.error('Fout: ' + cfError.message); return; }
     await supabase
       .from('invoices')
-      .update({ forecast_item_id: cfData.id, import_status: 'imported' } as any)
+      .update({ forecast_item_id: cfData.id, import_status: 'imported', status: 'goedgekeurd' } as any)
       .eq('id', item.ref_id);
     toast.success('Goedgekeurd voor betaling');
     loadData();
