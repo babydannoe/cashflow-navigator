@@ -123,6 +123,7 @@ export default function ExactImport() {
     } catch (err) {
       toast.error('Sync mislukt');
     } finally {
+      setLastSyncTime(new Date());
       setSyncing(false);
     }
   };
