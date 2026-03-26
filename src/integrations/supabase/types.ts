@@ -404,6 +404,7 @@ export type Database = {
       invoices: {
         Row: {
           bedrag: number
+          boekingsdatum: string | null
           bron: string | null
           bv_id: string
           counterparty_id: string | null
@@ -420,6 +421,7 @@ export type Database = {
         }
         Insert: {
           bedrag: number
+          boekingsdatum?: string | null
           bron?: string | null
           bv_id: string
           counterparty_id?: string | null
@@ -436,6 +438,7 @@ export type Database = {
         }
         Update: {
           bedrag?: number
+          boekingsdatum?: string | null
           bron?: string | null
           bv_id?: string
           counterparty_id?: string | null

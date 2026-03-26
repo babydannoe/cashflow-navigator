@@ -35,6 +35,7 @@ interface Invoice {
   exact_id: string | null;
   bron: string | null;
   counterparty_id: string | null;
+  boekingsdatum?: string | null;
   counterparties: { id: string; naam: string } | null;
   _suggestRecurring?: boolean;
 }
@@ -363,6 +364,7 @@ export default function ExactImport() {
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Factuurnummer</TableHead>
+                      <TableHead>Datum in Exact</TableHead>
                       <TableHead>Tegenpartij</TableHead>
                       <TableHead className="text-right">Bedrag</TableHead>
                       <TableHead>Vervaldatum</TableHead>
@@ -375,6 +377,11 @@ export default function ExactImport() {
                       <TableRow key={inv.id}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {inv.boekingsdatum
+                            ? format(new Date(inv.boekingsdatum), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}

@@ -176,6 +176,9 @@ Deno.serve(async (req) => {
             vervaldatum: item.DueDate
               ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
               : null,
+            boekingsdatum: item.InvoiceDate
+              ? new Date(parseInt(item.InvoiceDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
+              : null,
             status: "open",
             laatste_sync: new Date().toISOString(),
             counterparty_naam: item.AccountName ?? null,
@@ -204,6 +207,9 @@ Deno.serve(async (req) => {
             bedrag: Math.abs(item.Amount ?? 0),
             vervaldatum: item.DueDate
               ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
+              : null,
+            boekingsdatum: item.InvoiceDate
+              ? new Date(parseInt(item.InvoiceDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
               : null,
             status: "open",
             laatste_sync: new Date().toISOString(),
@@ -278,6 +284,7 @@ Deno.serve(async (req) => {
               .update({
                 bedrag: inv.bedrag,
                 vervaldatum: inv.vervaldatum,
+                boekingsdatum: inv.boekingsdatum,
                 status: inv.status,
                 laatste_sync: inv.laatste_sync,
                 factuurnummer: inv.factuurnummer,
