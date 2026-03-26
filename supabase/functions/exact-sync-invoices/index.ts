@@ -233,12 +233,13 @@ Deno.serve(async (req) => {
         const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}'&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=250`;
         const apItems = await fetchExactPaginated(apUrl, access_token);
 
-        apRecords = apItems.map((item: any) => ({
+        const apRecordsRaw = apItems.map((item: any) => ({
           exact_id: String(item.EntryID),
           bv_id: currentBvId,
           bron: "exact",
           type: "AP",
           factuurnummer: item.EntryNumber ? String(item.EntryNumber) : null,
+          supplierName: item.SupplierName ?? null,
           bedrag: Math.abs(item.AmountDC ?? 0),
           vervaldatum: item.DueDate
             ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
@@ -246,7 +247,34 @@ Deno.serve(async (req) => {
           status: STATUS_MAP_AP[item.Status] ?? "open",
           laatste_sync: new Date().toISOString(),
         }));
-        apRecords = apRecords.filter(r => r.status !== 'betaald' && r.status !== 'concept');
+
+        apRecords = [];
+        for (const raw of apRecordsRaw) {
+          if (raw.status === 'betaald' || raw.status === 'concept') continue;
+
+          let counterparty_id: string | null = null;
+          if (raw.supplierName) {
+            const { data: existingCP } = await supabase
+              .from("counterparties")
+              .select("id")
+              .ilike("naam", raw.supplierName)
+              .maybeSingle();
+
+            if (existingCP) {
+              counterparty_id = existingCP.id;
+            } else {
+              const { data: newCP } = await supabase
+                .from("counterparties")
+                .insert({ naam: raw.supplierName, type: "leverancier" })
+                .select("id")
+                .single();
+              counterparty_id = newCP?.id ?? null;
+            }
+          }
+
+          const { supplierName, ...rest } = raw;
+          apRecords.push({ ...rest, counterparty_id });
+        }
       } catch (err) {
         console.error(`AP sync error for ${currentBvId}:`, err);
       }
