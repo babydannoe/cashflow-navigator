@@ -320,34 +320,13 @@ export default function ExactImport() {
           .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
           .eq('id', importModal.id);
       } else if (importMode === 'recurring') {
-        if (!modalWeek) throw new Error('Geen week geselecteerd');
-        await supabase.from('recurring_rules').insert({
-          bv_id: importModal.bv_id,
-          omschrijving: modalOmschrijving,
-          bedrag: Math.abs(importModal.bedrag),
-          frequentie: 'maandelijks',
-          categorie: modalCategorie,
-          actief: true,
-          bron: 'exact_import',
-          verwachte_betaaldag: importModal.vervaldatum
-            ? new Date(importModal.vervaldatum).getDate()
-            : 1,
-        });
-        await supabase.from('invoices')
-          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+        // Alleen uit inbox halen — geen rule, geen cashflow_item aanmaken
+        // De recurring staat al in de forecast via de recurring_rules module
+        const { error } = await supabase
+          .from('invoices')
+          .update({ import_status: 'recurring_exact' } as any)
           .eq('id', importModal.id);
-        await supabase.from('cashflow_items').insert({
-          bv_id: importModal.bv_id,
-          week: format(startOfISOWeek(modalWeek!), 'yyyy-MM-dd'),
-          type: 'out',
-          bedrag: Math.abs(importModal.bedrag),
-          omschrijving: modalOmschrijving,
-          categorie: 'Recurring kosten',
-          bron: 'exact_import',
-          ref_id: importModal.id,
-          ref_type: 'invoice',
-          status: 'betaald',
-        });
+        if (error) throw error;
       } else {
         if (!modalWeek) throw new Error('Geen week geselecteerd');
         const cfItem = {
