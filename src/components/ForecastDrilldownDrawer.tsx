@@ -159,7 +159,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           week: weekDate,
           type,
           bv_id: bvId,
-        }).eq('id', item.cashflow_item_id);
+          opmerking: opmerking || null,
+        } as any).eq('id', item.cashflow_item_id);
         if (error) throw error;
         toast.success('Post bijgewerkt');
       } else {
