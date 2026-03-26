@@ -57,6 +57,7 @@ interface GoedgekeurdItem {
   bron: string;
   factuurnummer?: string;
   goedgekeurd_op?: string;
+  status?: string;
 }
 
 export default function Betalingsronden() {
@@ -91,14 +92,40 @@ export default function Betalingsronden() {
     ]);
     const ci = await supabase.from('cashflow_items').select('*').eq('type', 'out');
     const goedgekeurdeCI = (ci.data || []).filter((item: any) => item.status === 'goedgekeurd');
-    const betaaldeCI = (ci.data || []).filter((item: any) => item.status === 'betaald');
+    const betaaldeCI = (ci.data || []).filter((item: any) => 
+      item.status === 'betaald' || item.status === 'ontvangen'
+    );
+
+    // Voeg betaalde invoices toe aan historiek
+    const { data: betaaldeInvoices } = await supabase
+      .from('invoices')
+      .select('*, counterparties(naam)')
+      .eq('status', 'betaald')
+      .eq('import_status', 'imported')
+      .order('imported_at', { ascending: false });
+
+    const alleHistoriek = [
+      ...(betaaldeCI as GoedgekeurdItem[]),
+      ...(betaaldeInvoices || []).map((inv: any) => ({
+        id: inv.id,
+        bv_id: inv.bv_id,
+        omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Factuur',
+        bedrag: inv.bedrag,
+        categorie: inv.type === 'AR' ? 'Omzet' : 'Diensten',
+        week: inv.vervaldatum ?? inv.imported_at ?? '',
+        bron: 'invoice',
+        factuurnummer: inv.factuurnummer,
+        status: 'betaald',
+      })),
+    ];
+
     if (inv.data) setInvoices(inv.data);
     if (cp.data) setCounterparties(cp.data as Counterparty[]);
     if (ba.data) setBankAccounts(ba.data);
     if (pr.data) setPaymentRuns(pr.data);
     if (pri.data) setRunItems(pri.data);
     setGoedgekeurdItems(goedgekeurdeCI as GoedgekeurdItem[]);
-    setBetaaldeItems(betaaldeCI as GoedgekeurdItem[]);
+    setBetaaldeItems(alleHistoriek as GoedgekeurdItem[]);
     setLoading(false);
   }, []);
 
@@ -670,6 +697,7 @@ export default function Betalingsronden() {
                         />
                       </TableHead>
                       <TableHead>Omschrijving</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>BV</TableHead>
                       <TableHead>Categorie</TableHead>
                       <TableHead>Week</TableHead>
@@ -704,6 +732,13 @@ export default function Betalingsronden() {
                                   #{item.factuurnummer}
                                 </div>
                               )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge className={item.status === 'ontvangen' 
+                                ? 'bg-blue-500/15 text-blue-600' 
+                                : 'bg-emerald-500/15 text-emerald-600'}>
+                                {item.status === 'ontvangen' ? 'Ontvangen' : 'Betaald'}
+                              </Badge>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1.5">

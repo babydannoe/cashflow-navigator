@@ -220,7 +220,7 @@ export default function FinanceMeeting() {
     if (!id) return;
     const { error } = await supabase
       .from('cashflow_items')
-      .update({ status: 'ontvangen', goedgekeurd_op: new Date().toISOString() } as any)
+      .update({ status: 'betaald', goedgekeurd_op: new Date().toISOString() } as any)
       .eq('id', id);
     if (error) { toast.error('Fout: ' + error.message); return; }
     toast.success('Gemarkeerd als ontvangen');
@@ -273,6 +273,7 @@ export default function FinanceMeeting() {
         (i: CashflowItem) => i.week === currentWeekDate
           && i.status !== 'goedgekeurd'
           && i.status !== 'betaald'
+          && i.status !== 'ontvangen'
       );
       setCashflowItems(items);
 
