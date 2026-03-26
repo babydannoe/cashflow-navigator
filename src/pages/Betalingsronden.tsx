@@ -453,9 +453,9 @@ export default function Betalingsronden() {
                                 onClick={() => markeerBetaald(item.id)}>
                                 <Check className="h-3.5 w-3.5 mr-1" /> Betaald
                               </Button>
-                              <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive"
-                                onClick={() => verwijderCI(item.id)}>
-                                <Trash2 className="h-3.5 w-3.5" />
+                              <Button size="sm" variant="ghost" className="h-7 text-muted-foreground"
+                                onClick={() => verwijderCI(item.id)} title="Naar historiek">
+                                <ArrowRight className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
