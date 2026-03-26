@@ -181,12 +181,13 @@ Deno.serve(async (req) => {
         const arUrl = `${EXACT_BASE}/v1/${division}/salesinvoice/SalesInvoices?$filter=InvoiceDate gt datetime'${sinceDate}' and Status lt 50&$select=InvoiceID,InvoiceNumber,OrderedByName,AmountDC,InvoiceDate,DueDate,Status&$orderby=InvoiceDate desc&$top=100`;
         const arItems = await fetchExactPaginated(arUrl, access_token);
 
-        arRecords = arItems.map((item: any) => ({
+        const arRecordsRaw = arItems.map((item: any) => ({
           exact_id: String(item.InvoiceID),
           bv_id: currentBvId,
           bron: "exact",
           type: "AR",
           factuurnummer: item.InvoiceNumber ? String(item.InvoiceNumber) : null,
+          customerName: item.OrderedByName ?? null,
           bedrag: Math.abs(item.AmountDC ?? 0),
           vervaldatum: item.DueDate
             ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
@@ -194,7 +195,34 @@ Deno.serve(async (req) => {
           status: STATUS_MAP_AR[item.Status] ?? "ter_goedkeuring",
           laatste_sync: new Date().toISOString(),
         }));
-        arRecords = arRecords.filter(r => r.status !== 'betaald');
+
+        arRecords = [];
+        for (const raw of arRecordsRaw) {
+          if (raw.status === 'betaald') continue;
+
+          let counterparty_id: string | null = null;
+          if (raw.customerName) {
+            const { data: existingCP } = await supabase
+              .from("counterparties")
+              .select("id")
+              .ilike("naam", raw.customerName)
+              .maybeSingle();
+
+            if (existingCP) {
+              counterparty_id = existingCP.id;
+            } else {
+              const { data: newCP } = await supabase
+                .from("counterparties")
+                .insert({ naam: raw.customerName, type: "debiteur" })
+                .select("id")
+                .single();
+              counterparty_id = newCP?.id ?? null;
+            }
+          }
+
+          const { customerName, ...rest } = raw;
+          arRecords.push({ ...rest, counterparty_id });
+        }
       } catch (err) {
         console.error(`AR sync error for ${currentBvId}:`, err);
       }
