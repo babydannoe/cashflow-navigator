@@ -208,6 +208,9 @@ Deno.serve(async (req) => {
             vervaldatum: item.DueDate
               ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
               : null,
+            boekingsdatum: item.InvoiceDate
+              ? new Date(parseInt(item.InvoiceDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
+              : null,
             status: "open",
             laatste_sync: new Date().toISOString(),
             counterparty_naam: item.AccountName ?? null,
