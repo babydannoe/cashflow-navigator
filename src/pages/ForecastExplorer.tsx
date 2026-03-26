@@ -460,6 +460,9 @@ export default function ForecastExplorer() {
                       const val = row.weekValues[w.weekDate] || 0;
                       const isNeg = val < 0;
                       const underDrempel = isClosing && val < drempel && drempel > 0;
+                      const heeftOpmerking = row.type === 'detail'
+                        && row.detailItem?.week === w.weekDate
+                        && !!(row.detailItem as any)?.opmerking;
 
                       return (
                         <div key={w.weekDate}
@@ -480,7 +483,20 @@ export default function ForecastExplorer() {
                             if (row.type !== 'summary') handleRowClick(row);
                           }}
                         >
-                          {val !== 0 ? fmt(val) : <span className="text-muted-foreground/30">—</span>}
+                          {val !== 0 ? (
+                            <span className="flex items-center justify-end gap-1">
+                              {heeftOpmerking && (
+                                <span
+                                  className="text-xs leading-none shrink-0"
+                                  title={(row.detailItem as any)?.opmerking}>
+                                  💬
+                                </span>
+                              )}
+                              {fmt(val)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
                         </div>
                       );
                     })}
