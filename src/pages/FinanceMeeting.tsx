@@ -74,6 +74,7 @@ interface CashflowItem {
   vervaldatum?: string;
   kans_percentage?: number;
   frequentie?: string;
+  opmerking?: string | null;
 }
 
 interface PipelineItem {

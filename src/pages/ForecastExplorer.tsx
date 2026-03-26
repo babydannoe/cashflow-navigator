@@ -47,6 +47,7 @@ interface CashflowItem {
   kans_percentage?: number;
   frequentie?: string;
   cashflow_item_id?: string;
+  opmerking?: string | null;
 }
 
 type RowType = 'summary' | 'category' | 'subcategory' | 'detail';
