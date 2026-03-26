@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       { data: bvs },
     ] = await Promise.all([
       supabase.from("bank_accounts").select("*").in("bv_id", bvIds),
-      supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open"),
+      supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open").eq("import_status", "imported"),
       supabase.from("mt_pipeline_items").select("*").in("bv_id", bvIds),
       supabase.from("recurring_rules").select("*").in("bv_id", bvIds).eq("actief", true),
       supabase.from("cashflow_items").select("*").in("bv_id", bvIds).neq("status", "betaald"),
