@@ -214,18 +214,8 @@ export default function ExactImport() {
           .update({ import_status: 'imported', imported_at: new Date().toISOString(), forecast_item_id: cfData?.id } as any)
           .eq('id', inv.id);
       } else if (mode === 'recurring') {
-        await supabase.from('recurring_rules').insert({
-          bv_id: inv.bv_id,
-          omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
-          bedrag: Math.abs(inv.bedrag),
-          frequentie: 'maandelijks',
-          categorie: 'Recurring kosten',
-          actief: true,
-          bron: 'exact_import',
-          verwachte_betaaldag: inv.vervaldatum ? new Date(inv.vervaldatum).getDate() : 1,
-        });
         await supabase.from('invoices')
-          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+          .update({ import_status: 'recurring_exact' } as any)
           .eq('id', inv.id);
       }
     }
@@ -320,34 +310,13 @@ export default function ExactImport() {
           .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
           .eq('id', importModal.id);
       } else if (importMode === 'recurring') {
-        if (!modalWeek) throw new Error('Geen week geselecteerd');
-        await supabase.from('recurring_rules').insert({
-          bv_id: importModal.bv_id,
-          omschrijving: modalOmschrijving,
-          bedrag: Math.abs(importModal.bedrag),
-          frequentie: 'maandelijks',
-          categorie: modalCategorie,
-          actief: true,
-          bron: 'exact_import',
-          verwachte_betaaldag: importModal.vervaldatum
-            ? new Date(importModal.vervaldatum).getDate()
-            : 1,
-        });
-        await supabase.from('invoices')
-          .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
+        // Alleen uit inbox halen — geen rule, geen cashflow_item aanmaken
+        // De recurring staat al in de forecast via de recurring_rules module
+        const { error } = await supabase
+          .from('invoices')
+          .update({ import_status: 'recurring_exact' } as any)
           .eq('id', importModal.id);
-        await supabase.from('cashflow_items').insert({
-          bv_id: importModal.bv_id,
-          week: format(startOfISOWeek(modalWeek!), 'yyyy-MM-dd'),
-          type: 'out',
-          bedrag: Math.abs(importModal.bedrag),
-          omschrijving: modalOmschrijving,
-          categorie: 'Recurring kosten',
-          bron: 'exact_import',
-          ref_id: importModal.id,
-          ref_type: 'invoice',
-          status: 'betaald',
-        });
+        if (error) throw error;
       } else {
         if (!modalWeek) throw new Error('Geen week geselecteerd');
         const cfItem = {
@@ -667,7 +636,11 @@ export default function ExactImport() {
                 </div>
               </div>
 
-              {importMode === 'betaald' ? (
+              {importMode === 'recurring' ? (
+                <p className="text-sm text-muted-foreground">
+                  Deze factuur wordt gemarkeerd als recurring. Hij verdwijnt uit de inbox en is zichtbaar onder Recurring Kosten → Exact Online.
+                </p>
+              ) : importMode === 'betaald' ? (
                 <p className="text-sm text-muted-foreground">
                   Weet je zeker dat deze factuur al betaald is? Er wordt een historisch cashflow-item aangemaakt en de factuur verdwijnt uit de inbox.
                 </p>
