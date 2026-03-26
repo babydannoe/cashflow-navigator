@@ -202,37 +202,22 @@ Deno.serve(async (req) => {
       // ── Purchase Invoices (AP) ──
       let apRecords: any[] = [];
       try {
-        // Try ReceivablePurchaseInvoice first (has AmountPaid for reliable paid detection)
-        let apUrl = `${EXACT_BASE}/v1/${division}/read/financial/ReceivablePurchaseInvoice?$filter=EntryDate gt datetime'${sinceDate}'&$select=EntryID,EntryNumber,SupplierName,AmountDC,AmountPaid,EntryDate,DueDate,Status,PaymentConditionCode&$orderby=EntryDate desc&$top=100`;
-        let apItems: any[];
-        try {
-          apItems = await fetchExactPaginated(apUrl, access_token);
-        } catch (e) {
-          // Fallback to PurchaseEntries with AmountPaid
-          console.warn("ReceivablePurchaseInvoice not available, falling back to PurchaseEntries");
-          apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}'&$select=EntryID,EntryNumber,SupplierName,AmountDC,AmountPaid,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=100`;
-          apItems = await fetchExactPaginated(apUrl, access_token);
-        }
+        const apUrl = `${EXACT_BASE}/v1/${division}/purchaseentry/PurchaseEntries?$filter=EntryDate gt datetime'${sinceDate}'&$select=EntryID,EntryNumber,SupplierName,AmountDC,EntryDate,DueDate,Status&$orderby=EntryDate desc&$top=250`;
+        const apItems = await fetchExactPaginated(apUrl, access_token);
 
-        apRecords = apItems.map((item: any) => {
-          const amountDC = Math.abs(item.AmountDC ?? 0);
-          const amountPaid = Math.abs(item.AmountPaid ?? 0);
-          const outstanding = amountDC - amountPaid;
-          const isBetaald = outstanding <= 0.01;
-          return {
-            exact_id: String(item.EntryID),
-            bv_id: currentBvId,
-            bron: "exact",
-            type: "AP",
-            factuurnummer: item.EntryNumber ? String(item.EntryNumber) : null,
-            bedrag: amountDC,
-            vervaldatum: item.DueDate
-              ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
-              : null,
-            status: isBetaald ? "betaald" : (STATUS_MAP_AP[item.Status] ?? "open"),
-            laatste_sync: new Date().toISOString(),
-          };
-        });
+        apRecords = apItems.map((item: any) => ({
+          exact_id: String(item.EntryID),
+          bv_id: currentBvId,
+          bron: "exact",
+          type: "AP",
+          factuurnummer: item.EntryNumber ? String(item.EntryNumber) : null,
+          bedrag: Math.abs(item.AmountDC ?? 0),
+          vervaldatum: item.DueDate
+            ? new Date(parseInt(item.DueDate.replace(/\/Date\((\d+)\)\//, "$1"))).toISOString().split("T")[0]
+            : null,
+          status: STATUS_MAP_AP[item.Status] ?? "open",
+          laatste_sync: new Date().toISOString(),
+        }));
         apRecords = apRecords.filter(r => r.status !== 'betaald' && r.status !== 'concept');
       } catch (err) {
         console.error(`AP sync error for ${currentBvId}:`, err);
