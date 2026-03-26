@@ -136,11 +136,28 @@ export default function FinanceMeeting() {
   };
 
   const goedkeurenBulk = async (ids: string[]) => {
-    const { error } = await supabase
-      .from('cashflow_items')
-      .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
-      .in('id', ids);
-    if (error) { toast.error('Fout: ' + error.message); return; }
+    // Cashflow items direct updaten
+    const cfIds = ids.filter(id =>
+      outItems.some(i => i.cashflow_item_id === id)
+    );
+    if (cfIds.length > 0) {
+      const { error } = await supabase
+        .from('cashflow_items')
+        .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
+        .in('id', cfIds);
+      if (error) { toast.error('Fout: ' + error.message); return; }
+    }
+
+    // Invoice-items zonder cashflow_item_id via goedkeurenInvoice
+    const invoiceItems = outItems.filter(i =>
+      !i.cashflow_item_id &&
+      i.ref_type === 'invoice' &&
+      ids.includes(i.ref_id)
+    );
+    for (const item of invoiceItems) {
+      await goedkeurenInvoice(item);
+    }
+
     toast.success(`${ids.length} post${ids.length > 1 ? 'en' : ''} goedgekeurd voor betaling`);
     setSelectedIds(new Set());
     loadData();
