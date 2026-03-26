@@ -647,7 +647,18 @@ export default function FinanceMeeting() {
                 </div>
               </TableCell>
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
-              <TableCell />
+              <TableCell>
+                {!isViewer && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                    onClick={() => betaalRecurring(item)}
+                    title="Markeer als betaald">
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

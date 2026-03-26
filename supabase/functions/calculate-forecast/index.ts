@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       { data: existingCashflowItems },
       { data: counterparties },
       { data: bvs },
+      { data: betaaldRecurringItems },
     ] = await Promise.all([
       supabase.from("bank_accounts").select("*").in("bv_id", bvIds),
       supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open").eq("import_status", "imported"),
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
       supabase.from("cashflow_items").select("*").in("bv_id", bvIds).neq("status", "betaald"),
       supabase.from("counterparties").select("*"),
       supabase.from("bv").select("*").in("id", bvIds),
+      supabase.from("cashflow_items").select("ref_id, week").in("bv_id", bvIds).eq("bron", "recurring").eq("status", "betaald"),
     ]);
 
     const counterpartyMap = new Map(
