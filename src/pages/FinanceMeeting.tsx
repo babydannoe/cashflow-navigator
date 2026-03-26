@@ -700,6 +700,7 @@ export default function FinanceMeeting() {
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                   {item.omschrijving}
+                  {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
               <TableCell><Badge variant="secondary" className="text-xs">{item.categorie}</Badge></TableCell>
