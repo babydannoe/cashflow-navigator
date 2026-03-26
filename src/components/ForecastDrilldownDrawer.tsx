@@ -176,7 +176,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           tegenpartij,
           bron: 'handmatig',
           ref_type: 'handmatig',
-        });
+          opmerking: opmerking || null,
+        } as any);
         if (error) throw error;
         toast.success('Post opgeslagen');
       }
