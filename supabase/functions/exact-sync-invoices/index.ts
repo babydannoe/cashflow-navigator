@@ -172,7 +172,7 @@ Deno.serve(async (req) => {
         continue;
       }
       const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 12);
       const sinceDate = sixMonthsAgo.toISOString().split("T")[0];
 
       // ── Sales Invoices (AR) ──
