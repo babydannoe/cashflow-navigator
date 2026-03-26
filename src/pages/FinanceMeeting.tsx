@@ -187,6 +187,26 @@ export default function FinanceMeeting() {
     loadData();
   };
 
+  const betaalRecurring = async (item: CashflowItem) => {
+    const { error } = await supabase.from('cashflow_items').insert({
+      bv_id: item.bv_id,
+      week: item.week,
+      type: 'out',
+      bedrag: item.bedrag,
+      omschrijving: item.omschrijving,
+      categorie: item.categorie,
+      tegenpartij: item.tegenpartij,
+      bron: 'recurring',
+      ref_id: item.ref_id,
+      ref_type: 'recurring_rule',
+      status: 'betaald',
+      goedgekeurd_op: new Date().toISOString(),
+    } as any);
+    if (error) { toast.error('Fout: ' + error.message); return; }
+    toast.success(`${item.omschrijving} gemarkeerd als betaald`);
+    loadData();
+  };
+
   const verschuifBulk = async (ids: string[]) => {
     for (const id of ids) {
       const item = cashflowItems.find(i => i.cashflow_item_id === id);
@@ -627,7 +647,18 @@ export default function FinanceMeeting() {
                 </div>
               </TableCell>
               <TableCell className={cn('text-right font-mono text-sm', colorClass)}>− {fmt(item.bedrag)}</TableCell>
-              <TableCell />
+              <TableCell>
+                {!isViewer && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 hover:bg-emerald-500 hover:text-white transition-colors"
+                    onClick={() => betaalRecurring(item)}
+                    title="Markeer als betaald">
+                    <Check className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

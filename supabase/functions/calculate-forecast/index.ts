@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       { data: existingCashflowItems },
       { data: counterparties },
       { data: bvs },
+      { data: betaaldRecurringItems },
     ] = await Promise.all([
       supabase.from("bank_accounts").select("*").in("bv_id", bvIds),
       supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open").eq("import_status", "imported"),
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
       supabase.from("cashflow_items").select("*").in("bv_id", bvIds).neq("status", "betaald"),
       supabase.from("counterparties").select("*"),
       supabase.from("bv").select("*").in("id", bvIds),
+      supabase.from("cashflow_items").select("ref_id, week").in("bv_id", bvIds).eq("bron", "recurring").eq("status", "betaald"),
     ]);
 
     const counterpartyMap = new Map(
@@ -192,6 +194,11 @@ Deno.serve(async (req) => {
     const lastBucketDate = new Date(weekBuckets[weekBuckets.length - 1].weekDate);
     lastBucketDate.setDate(lastBucketDate.getDate() + 6); // end of last week
 
+    // Build set of already-paid recurring items to skip
+    const betaaldeRecurring = new Set(
+      (betaaldRecurringItems || []).map((ci: any) => `${ci.ref_id}__${ci.week}`)
+    );
+
     for (const rule of recurring || []) {
       const bv = bvMap.get(rule.bv_id);
       const ruleStart = rule.startdatum ? new Date(rule.startdatum) : null;
@@ -219,6 +226,8 @@ Deno.serve(async (req) => {
           const bucketDate = new Date(bucket.weekDate);
           if (ruleStart && bucketDate < ruleStart) continue;
           if (ruleEnd && bucketDate > ruleEnd) continue;
+          const key = `${rule.id}__${bucket.weekDate}`;
+          if (betaaldeRecurring.has(key)) continue;
           cashflowItems.push(makeItem(bucket.weekDate));
         }
       } else if (rule.frequentie === "maandelijks") {
@@ -239,7 +248,10 @@ Deno.serve(async (req) => {
 
           const weekDate = findWeekBucket(payDate.toISOString().split("T")[0], weekBuckets);
           if (weekDate) {
-            cashflowItems.push(makeItem(weekDate));
+            const key = `${rule.id}__${weekDate}`;
+            if (!betaaldeRecurring.has(key)) {
+              cashflowItems.push(makeItem(weekDate));
+            }
           }
 
           cursor.setMonth(cursor.getMonth() + 1);
