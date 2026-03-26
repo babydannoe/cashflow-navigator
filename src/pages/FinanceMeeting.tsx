@@ -752,10 +752,10 @@ export default function FinanceMeeting() {
           {/* Bulk action bar */}
           {selectedIds.size > 0 && (() => {
             const selectedOutIds = Array.from(selectedIds).filter(id =>
-              outItems.some(i => i.cashflow_item_id === id)
+              outItems.some(i => getSelectKey(i) === id)
             );
             const selectedInIds = Array.from(selectedIds).filter(id =>
-              inItems.some(i => i.cashflow_item_id === id)
+              inItems.some(i => getSelectKey(i) === id)
             );
             return (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
