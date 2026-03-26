@@ -388,6 +388,7 @@ export default function ExactImport() {
                           {inv.aangemaakt_in_exact
                             ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
                             : '—'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
