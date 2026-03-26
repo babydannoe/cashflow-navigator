@@ -77,6 +77,22 @@ export default function RecurringKosten() {
 
   useEffect(() => { loadData(); }, [selectedBVId]);
 
+  useEffect(() => {
+    const loadBetaald = async () => {
+      let q = supabase
+        .from('cashflow_items')
+        .select('*')
+        .eq('bron', 'exact_import')
+        .eq('categorie', 'Recurring kosten')
+        .eq('status', 'betaald')
+        .order('week', { ascending: false });
+      if (selectedBVId) q = q.eq('bv_id', selectedBVId);
+      const { data } = await q;
+      setBetaaldeRecurring(data || []);
+    };
+    loadBetaald();
+  }, [selectedBVId]);
+
   const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
 
   const logAudit = async (actie: string, recordId: string | null, oud: any, nieuw: any) => {
