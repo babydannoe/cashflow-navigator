@@ -285,7 +285,7 @@ export default function ExactImport() {
     mutationFn: async (invoiceId: string) => {
       const { error } = await supabase
         .from('invoices')
-        .update({ import_status: 'imported', imported_at: new Date().toISOString() } as any)
+        .update({ import_status: 'dismissed' } as any)
         .eq('id', invoiceId);
       if (error) throw error;
     },
