@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw } from 'lucide-react';
+import { Download, Check, Plus, CreditCard, ArrowRight, RotateCcw, Trash2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
@@ -258,6 +258,30 @@ export default function Betalingsronden() {
     fetchData();
   };
 
+  const verwijderCI = async (id: string) => {
+    await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+    await supabase.from('audit_log').insert({
+      tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
+      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+    });
+    toast.success('Post verwijderd uit betalingsronde');
+    fetchData();
+  };
+
+  const verwijderCIBulk = async () => {
+    const ids = Array.from(selectedCIIds);
+    for (const id of ids) {
+      await supabase.from('cashflow_items').update({ status: 'actief', goedgekeurd_op: null } as any).eq('id', id);
+      await supabase.from('audit_log').insert({
+        tabel: 'cashflow_items', actie: 'status → actief (verwijderd uit betalingsronde)',
+        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'actief' },
+      });
+    }
+    toast.success(`${ids.length} posten verwijderd uit betalingsronde`);
+    setSelectedCIIds(new Set());
+    fetchData();
+  };
+
   // ── Historiek functies ──
   const terugzettenEnkel = async (id: string) => {
     const { error } = await supabase
@@ -335,6 +359,9 @@ export default function Betalingsronden() {
                     <Button size="sm" variant="outline" onClick={verschuifCIBulk}>
                       <ArrowRight className="h-3.5 w-3.5 mr-1" /> 1 week opschuiven
                     </Button>
+                    <Button size="sm" variant="destructive" onClick={verwijderCIBulk}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Verwijderen ({selectedCIIds.size})
+                    </Button>
                   </div>
                 )}
               </div>
@@ -394,10 +421,16 @@ export default function Betalingsronden() {
                           <TableCell className="text-sm text-muted-foreground">{item.week}</TableCell>
                           <TableCell className="text-right font-mono text-sm text-destructive">− {fmt(item.bedrag)}</TableCell>
                           <TableCell>
-                            <Button size="sm" className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => markeerBetaald(item.id)}>
-                              <Check className="h-3.5 w-3.5 mr-1" /> Betaald
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button size="sm" className="h-7 bg-emerald-600 hover:bg-emerald-700 text-white"
+                                onClick={() => markeerBetaald(item.id)}>
+                                <Check className="h-3.5 w-3.5 mr-1" /> Betaald
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive"
+                                onClick={() => verwijderCI(item.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
