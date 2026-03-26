@@ -299,7 +299,17 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (existing) {
-            // Update only sync-relevant fields, preserve import_status
+            // Haal huidige status en import_status op
+            const { data: currentInv } = await supabase
+              .from("invoices")
+              .select("status, import_status")
+              .eq("exact_id", inv.exact_id)
+              .maybeSingle();
+
+            // Nooit overschrijven als al verwerkt in ons systeem
+            const beschermd = ['betaald', 'gecrediteerd'].includes(currentInv?.status ?? '');
+            const afgehandeld = ['imported', 'dismissed'].includes(currentInv?.import_status ?? '');
+
             await supabase
               .from("invoices")
               .update({
@@ -307,7 +317,8 @@ Deno.serve(async (req) => {
                 vervaldatum: inv.vervaldatum,
                 boekingsdatum: inv.boekingsdatum,
                 aangemaakt_in_exact: inv.aangemaakt_in_exact,
-                status: inv.status,
+                // Alleen status updaten als de factuur nog niet verwerkt is
+                ...(beschermd || afgehandeld ? {} : { status: inv.status }),
                 laatste_sync: inv.laatste_sync,
                 factuurnummer: inv.factuurnummer,
                 ...(inv.counterparty_id ? { counterparty_id: inv.counterparty_id } : {}),
