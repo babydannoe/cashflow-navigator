@@ -364,6 +364,7 @@ export default function ExactImport() {
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Factuurnummer</TableHead>
+                      <TableHead>Datum in Exact</TableHead>
                       <TableHead>Tegenpartij</TableHead>
                       <TableHead className="text-right">Bedrag</TableHead>
                       <TableHead>Vervaldatum</TableHead>
