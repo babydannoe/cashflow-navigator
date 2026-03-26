@@ -347,7 +347,10 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
 
           {/* Opmerking */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Opmerking (optioneel)</Label>
+            <Label className="text-xs flex items-center gap-1">
+              Opmerking (optioneel)
+              {opmerking && <span className="text-base leading-none">💬</span>}
+            </Label>
             <Textarea value={opmerking} onChange={e => setOpmerking(e.target.value)} placeholder="Extra info..." rows={2} className="text-sm" />
           </div>
 
