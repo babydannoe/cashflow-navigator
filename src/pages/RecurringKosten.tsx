@@ -80,19 +80,17 @@ export default function RecurringKosten() {
   useEffect(() => { loadData(); }, [selectedBVId]);
 
   useEffect(() => {
-    const loadBetaald = async () => {
+    const loadExactOnline = async () => {
       let q = supabase
-        .from('cashflow_items')
-        .select('*')
-        .eq('bron', 'exact_import')
-        .eq('categorie', 'Recurring kosten')
-        .eq('status', 'betaald')
-        .order('week', { ascending: false });
+        .from('invoices')
+        .select('*, counterparties(id, naam)')
+        .eq('import_status', 'recurring_exact')
+        .order('aangemaakt_in_exact', { ascending: false });
       if (selectedBVId) q = q.eq('bv_id', selectedBVId);
       const { data } = await q;
-      setBetaaldeRecurring(data || []);
+      setExactOnlineRecurring((data || []) as any[]);
     };
-    loadBetaald();
+    loadExactOnline();
   }, [selectedBVId]);
 
   const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
