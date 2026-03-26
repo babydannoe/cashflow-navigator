@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -60,7 +62,7 @@ export default function RecurringKosten() {
   const [filterCat, setFilterCat] = useState('all');
   const [filterBron, setFilterBron] = useState('all');
   const [suggestions, setSuggestions] = useState<ReviewSuggestion[]>(mockSuggestions);
-  const [betaaldeRecurring, setBetaaldeRecurring] = useState<any[]>([]);
+  const [exactOnlineRecurring, setExactOnlineRecurring] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     bv_id: '', categorie: 'Abonnement', omschrijving: '', bedrag: '', frequentie: 'maandelijks',
@@ -78,19 +80,17 @@ export default function RecurringKosten() {
   useEffect(() => { loadData(); }, [selectedBVId]);
 
   useEffect(() => {
-    const loadBetaald = async () => {
+    const loadExactOnline = async () => {
       let q = supabase
-        .from('cashflow_items')
-        .select('*')
-        .eq('bron', 'exact_import')
-        .eq('categorie', 'Recurring kosten')
-        .eq('status', 'betaald')
-        .order('week', { ascending: false });
+        .from('invoices')
+        .select('*, counterparties(id, naam)')
+        .eq('import_status', 'recurring_exact')
+        .order('aangemaakt_in_exact', { ascending: false });
       if (selectedBVId) q = q.eq('bv_id', selectedBVId);
       const { data } = await q;
-      setBetaaldeRecurring(data || []);
+      setExactOnlineRecurring((data || []) as any[]);
     };
-    loadBetaald();
+    loadExactOnline();
   }, [selectedBVId]);
 
   const fmt = (n: number) => new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
@@ -197,7 +197,7 @@ export default function RecurringKosten() {
         <TabsList>
           <TabsTrigger value="actief">Actieve regels</TabsTrigger>
           <TabsTrigger value="review">Review voorstellen</TabsTrigger>
-          <TabsTrigger value="betaald">Betaalde recurring</TabsTrigger>
+          <TabsTrigger value="exact-online">Exact Online</TabsTrigger>
         </TabsList>
 
         <TabsContent value="actief" className="space-y-4">
@@ -372,32 +372,52 @@ export default function RecurringKosten() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="betaald" className="space-y-4">
+        <TabsContent value="exact-online" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Betaalde recurring posten</CardTitle>
-              <p className="text-sm text-muted-foreground">Facturen die via Exact Import als recurring zijn gemarkeerd en betaald.</p>
+              <CardTitle className="text-base">Recurring via Exact Online</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Facturen uit Exact Import die als recurring zijn gemarkeerd. Ze staan al in de forecast via de recurring regels.
+              </p>
             </CardHeader>
             <CardContent>
-              {betaaldeRecurring.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-6 text-center">Geen betaalde recurring posten gevonden.</p>
+              {exactOnlineRecurring.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-6 text-center">
+                  Nog geen recurring posten vanuit Exact Import.
+                </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Omschrijving</TableHead>
+                      <TableHead>Tegenpartij</TableHead>
                       <TableHead>BV</TableHead>
-                      <TableHead>Week</TableHead>
+                      <TableHead>Factuurnummer</TableHead>
+                      <TableHead>Toegevoegd in Exact</TableHead>
+                      <TableHead>Vervaldatum</TableHead>
                       <TableHead className="text-right">Bedrag</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {betaaldeRecurring.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.omschrijving ?? '—'}</TableCell>
-                        <TableCell>{bvs.find(b => b.id === item.bv_id)?.naam ?? '—'}</TableCell>
-                        <TableCell>{item.week ?? '—'}</TableCell>
-                        <TableCell className="text-right">{fmt(item.bedrag || 0)}</TableCell>
+                    {exactOnlineRecurring.map((inv: any) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">
+                          {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
+                        </TableCell>
+                        <TableCell>{bvs.find(b => b.id === inv.bv_id)?.naam ?? '—'}</TableCell>
+                        <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {inv.aangemaakt_in_exact
+                            ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {inv.vervaldatum
+                            ? format(new Date(inv.vervaldatum), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {fmt(inv.bedrag || 0)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
