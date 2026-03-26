@@ -160,6 +160,27 @@ export default function ExactImport() {
     },
   });
 
+  const alInForecastMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          import_status: 'imported',
+          imported_at: new Date().toISOString(),
+        } as any)
+        .eq('id', invoiceId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Post verwijderd uit inbox — staat al in de forecast');
+      queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
+    },
+    onError: (err: any) => {
+      toast.error('Fout: ' + err.message);
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: async () => {
       if (!importModal) throw new Error('Geen data');
