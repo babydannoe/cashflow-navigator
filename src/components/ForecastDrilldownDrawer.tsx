@@ -144,7 +144,8 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
         const { error } = await supabase.from('invoices').update({
           bedrag: Math.abs(parseFloat(bedrag)),
           vervaldatum: vervaldatum ? format(vervaldatum, 'yyyy-MM-dd') : null,
-        }).eq('id', item.ref_id);
+          opmerking: opmerking || null,
+        } as any).eq('id', item.ref_id);
         if (error) throw error;
         toast.success('Factuur bijgewerkt');
       } else if (item?.cashflow_item_id) {
