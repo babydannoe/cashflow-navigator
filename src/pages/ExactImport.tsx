@@ -126,7 +126,7 @@ export default function ExactImport() {
     }
   };
 
-  const openImportModal = (invoice: Invoice, mode: 'forecast' | 'recurring') => {
+  const openImportModal = (invoice: Invoice, mode: 'forecast' | 'recurring' | 'betaald') => {
     setImportModal(invoice);
     setImportMode(mode);
     setModalOmschrijving(
@@ -135,32 +135,13 @@ export default function ExactImport() {
     setModalCategorie(
       mode === 'recurring' ? 'Recurring kosten' : (invoice.type === 'AR' ? 'Omzet' : 'Kosten')
     );
-    if (invoice.vervaldatum) {
+    if (mode === 'betaald') {
+      setModalWeek(startOfISOWeek(new Date()));
+    } else if (invoice.vervaldatum) {
       setModalWeek(startOfISOWeek(new Date(invoice.vervaldatum)));
     } else {
       setModalWeek(startOfISOWeek(new Date()));
     }
-  };
-
-  const markeerBetaald = async (inv: Invoice) => {
-    await supabase.from('invoices')
-      .update({ import_status: 'imported', status: 'betaald', imported_at: new Date().toISOString() } as any)
-      .eq('id', inv.id);
-    await supabase.from('cashflow_items').insert({
-      bv_id: inv.bv_id,
-      week: format(startOfISOWeek(new Date()), 'yyyy-MM-dd'),
-      type: inv.type === 'AR' ? 'in' : 'out',
-      bedrag: Math.abs(inv.bedrag),
-      omschrijving: inv.counterparties?.naam ?? inv.factuurnummer ?? 'Exact factuur',
-      categorie: inv.type === 'AR' ? 'Omzet' : 'Kosten',
-      bron: 'exact_import',
-      ref_id: inv.id,
-      ref_type: 'invoice',
-      status: 'betaald',
-    });
-    toast.success('Gemarkeerd als reeds betaald');
-    queryClient.invalidateQueries({ queryKey: ['exact-import-invoices'] });
-    queryClient.invalidateQueries({ queryKey: ['exact-import-pending-count'] });
   };
 
   const skipMutation = useMutation({
