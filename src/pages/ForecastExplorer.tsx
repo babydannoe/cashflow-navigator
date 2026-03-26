@@ -65,6 +65,7 @@ interface MatrixRow {
 
 const SOURCES = [
   { id: 'exact', label: 'Exact' },
+  { id: 'exact_import', label: 'Exact Import' },
   { id: 'bunq', label: 'bunq' },
   { id: 'recurring', label: 'Recurring' },
   { id: 'mt_pipeline', label: 'MT Pipeline' },
