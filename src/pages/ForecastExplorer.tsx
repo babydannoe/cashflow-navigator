@@ -192,12 +192,20 @@ export default function ForecastExplorer() {
           result.push(row);
         }
       } else if (row.type === 'detail') {
-        // parentId = "in::Diensten::Jongens van Boven", need catId = "in::Diensten"
         const parts = row.parentId?.split('::') || [];
-        const catId = parts.slice(0, 2).join('::');
-        const subId = row.parentId;
-        if (catId && subId && expanded.has(catId) && expanded.has(subId)) {
-          result.push(row);
+        if (parts.length === 2) {
+          // Direct onder categorie (enkelvoudig item) — toon als categorie expanded is
+          const catId = row.parentId;
+          if (catId && expanded.has(catId)) {
+            result.push(row);
+          }
+        } else {
+          // Onder subcategorie — beide moeten expanded zijn
+          const catId = parts.slice(0, 2).join('::');
+          const subId = row.parentId;
+          if (catId && subId && expanded.has(catId) && expanded.has(subId)) {
+            result.push(row);
+          }
         }
       }
     }
