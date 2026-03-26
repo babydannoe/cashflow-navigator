@@ -403,6 +403,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          aangemaakt_in_exact: string | null
           bedrag: number
           boekingsdatum: string | null
           bron: string | null
@@ -420,6 +421,7 @@ export type Database = {
           vervaldatum: string | null
         }
         Insert: {
+          aangemaakt_in_exact?: string | null
           bedrag: number
           boekingsdatum?: string | null
           bron?: string | null
@@ -437,6 +439,7 @@ export type Database = {
           vervaldatum?: string | null
         }
         Update: {
+          aangemaakt_in_exact?: string | null
           bedrag?: number
           boekingsdatum?: string | null
           bron?: string | null
