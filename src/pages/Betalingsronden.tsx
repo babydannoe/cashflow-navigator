@@ -697,6 +697,7 @@ export default function Betalingsronden() {
                         />
                       </TableHead>
                       <TableHead>Omschrijving</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>BV</TableHead>
                       <TableHead>Categorie</TableHead>
                       <TableHead>Week</TableHead>
