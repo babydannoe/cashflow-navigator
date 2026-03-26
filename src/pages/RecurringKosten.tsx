@@ -372,32 +372,52 @@ export default function RecurringKosten() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="betaald" className="space-y-4">
+        <TabsContent value="exact-online" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Betaalde recurring posten</CardTitle>
-              <p className="text-sm text-muted-foreground">Facturen die via Exact Import als recurring zijn gemarkeerd en betaald.</p>
+              <CardTitle className="text-base">Recurring via Exact Online</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Facturen uit Exact Import die als recurring zijn gemarkeerd. Ze staan al in de forecast via de recurring regels.
+              </p>
             </CardHeader>
             <CardContent>
-              {betaaldeRecurring.length === 0 ? (
-                <p className="text-muted-foreground text-sm py-6 text-center">Geen betaalde recurring posten gevonden.</p>
+              {exactOnlineRecurring.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-6 text-center">
+                  Nog geen recurring posten vanuit Exact Import.
+                </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Omschrijving</TableHead>
+                      <TableHead>Tegenpartij</TableHead>
                       <TableHead>BV</TableHead>
-                      <TableHead>Week</TableHead>
+                      <TableHead>Factuurnummer</TableHead>
+                      <TableHead>Toegevoegd in Exact</TableHead>
+                      <TableHead>Vervaldatum</TableHead>
                       <TableHead className="text-right">Bedrag</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {betaaldeRecurring.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">{item.omschrijving ?? '—'}</TableCell>
-                        <TableCell>{bvs.find(b => b.id === item.bv_id)?.naam ?? '—'}</TableCell>
-                        <TableCell>{item.week ?? '—'}</TableCell>
-                        <TableCell className="text-right">{fmt(item.bedrag || 0)}</TableCell>
+                    {exactOnlineRecurring.map((inv: any) => (
+                      <TableRow key={inv.id}>
+                        <TableCell className="font-medium">
+                          {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
+                        </TableCell>
+                        <TableCell>{bvs.find(b => b.id === inv.bv_id)?.naam ?? '—'}</TableCell>
+                        <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {inv.aangemaakt_in_exact
+                            ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {inv.vervaldatum
+                            ? format(new Date(inv.vervaldatum), 'dd MMM yyyy', { locale: nl })
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {fmt(inv.bedrag || 0)}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
