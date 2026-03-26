@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
     const allResults: any[] = [];
 
     for (const currentBvId of bvIds) {
-      const tokens = await getValidToken(supabase, currentBvId);
+      const tokens = await getValidToken(supabase, currentBvId, SUPABASE_URL, SUPABASE_ANON_KEY);
       if (!tokens) {
         allResults.push({ bv_id: currentBvId, error: "Geen Exact koppeling voor deze BV" });
         continue;
