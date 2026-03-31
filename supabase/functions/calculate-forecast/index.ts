@@ -113,9 +113,10 @@ Deno.serve(async (req) => {
     }
 
     // 2. Process invoices (only if not already in cashflow_items to avoid duplicates)
+    // Gebruik allInvoiceCIRefs voor deduplicatie — alle statussen (actief, goedgekeurd, betaald, etc.)
     const existingRefIds = new Set(
-      (existingCashflowItems || [])
-        .filter((ci: any) => ci.ref_type === "invoice" && ci.ref_id)
+      (allInvoiceCIRefs || [])
+        .filter((ci: any) => ci.ref_id)
         .map((ci: any) => ci.ref_id)
     );
 
