@@ -41,6 +41,7 @@ Deno.serve(async (req) => {
       { data: counterparties },
       { data: bvs },
       { data: betaaldRecurringItems },
+      { data: allInvoiceCIRefs },
     ] = await Promise.all([
       supabase.from("bank_accounts").select("*").in("bv_id", bvIds),
       supabase.from("invoices").select("*").in("bv_id", bvIds).eq("status", "open").eq("import_status", "imported"),
@@ -50,6 +51,7 @@ Deno.serve(async (req) => {
       supabase.from("counterparties").select("*"),
       supabase.from("bv").select("*").in("id", bvIds),
       supabase.from("cashflow_items").select("ref_id, week").in("bv_id", bvIds).eq("bron", "recurring").eq("status", "betaald"),
+      supabase.from("cashflow_items").select("ref_id").in("bv_id", bvIds).eq("ref_type", "invoice"),
     ]);
 
     const counterpartyMap = new Map(
@@ -111,9 +113,10 @@ Deno.serve(async (req) => {
     }
 
     // 2. Process invoices (only if not already in cashflow_items to avoid duplicates)
+    // Gebruik allInvoiceCIRefs voor deduplicatie — alle statussen (actief, goedgekeurd, betaald, etc.)
     const existingRefIds = new Set(
-      (existingCashflowItems || [])
-        .filter((ci: any) => ci.ref_type === "invoice" && ci.ref_id)
+      (allInvoiceCIRefs || [])
+        .filter((ci: any) => ci.ref_id)
         .map((ci: any) => ci.ref_id)
     );
 
