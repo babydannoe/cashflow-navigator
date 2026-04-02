@@ -554,7 +554,7 @@ function buildCategoryRows(
       label: cat,
       weekValues: {},
       indent: 0,
-      expandable: catItems.length > 1,
+      expandable: true,
     };
     for (const w of weeks) {
       catRow.weekValues[w] = catItems
