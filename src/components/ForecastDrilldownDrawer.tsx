@@ -195,6 +195,16 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
     setSaving(true);
     try {
       if (item?.cashflow_item_id) {
+        // Step 1: Unlink any invoice that references this cashflow_item via forecast_item_id
+        await supabase
+          .from('invoices')
+          .update({
+            forecast_item_id: null,
+            import_status: 'pending',
+          } as any)
+          .eq('forecast_item_id', item.cashflow_item_id);
+
+        // Step 2: Now safe to delete the cashflow_item
         const { error } = await supabase.from('cashflow_items').delete().eq('id', item.cashflow_item_id);
         if (error) throw error;
       } else if (item?.ref_type === 'invoice' && item?.ref_id) {
