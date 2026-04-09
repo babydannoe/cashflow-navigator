@@ -2,18 +2,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
-  RefreshCw, ArrowRight, Pencil, Plus, X, CalendarIcon, Save, Lock, Check, PackageCheck,
+  RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
@@ -44,15 +40,6 @@ function getISOWeek(date: Date): number {
 const fmt = (n: number) =>
   new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
 
-const STATUS_ORDER: Record<string, number> = { contract: 0, handshake: 1, offerte: 2, lead: 3 };
-const STATUS_COLORS: Record<string, string> = {
-  lead: 'bg-muted text-muted-foreground',
-  offerte: 'bg-blue-500/20 text-blue-400',
-  handshake: 'bg-orange-500/20 text-orange-400',
-  contract: 'bg-emerald-500/20 text-emerald-400',
-};
-const STATUS_FLOW = ['lead', 'offerte', 'handshake', 'contract'];
-
 // ── types ──
 interface CashflowItem {
   bv_id: string;
@@ -77,24 +64,6 @@ interface CashflowItem {
   opmerking?: string | null;
 }
 
-interface PipelineItem {
-  id: string;
-  bv_id: string;
-  projectnaam: string | null;
-  bedrag: number | null;
-  kans_percentage: number | null;
-  status: string | null;
-  verwachte_week: string | null;
-  opmerkingen: string | null;
-  aangemaakt_op: string | null;
-  aangemaakt_door: string | null;
-}
-
-interface Termijn {
-  percentage: number;
-  datum: Date | undefined;
-}
-
 export default function FinanceMeeting() {
   const { bvs } = useBV();
   const { isAdmin, isViewer } = useUserRole();
@@ -113,14 +82,7 @@ export default function FinanceMeeting() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Tab 2 state
-  const [pipelineItems, setPipelineItems] = useState<PipelineItem[]>([]);
-  const [scheduleItem, setScheduleItem] = useState<PipelineItem | null>(null);
-  const [termijnen, setTermijnen] = useState<Termijn[]>([
-    { percentage: 50, datum: undefined },
-    { percentage: 30, datum: undefined },
-    { percentage: 20, datum: undefined },
-  ]);
-  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [radarItems, setRadarItems] = useState<CashflowItem[]>([]);
 
   const weekStart = getISOWeekStart(new Date());
   const weekEnd = addDays(weekStart, 6);
@@ -140,7 +102,6 @@ export default function FinanceMeeting() {
   };
 
   const goedkeurenBulk = async (ids: string[]) => {
-    // Cashflow items direct updaten
     const cfIds = ids.filter(id =>
       outItems.some(i => i.cashflow_item_id === id)
     );
@@ -152,7 +113,6 @@ export default function FinanceMeeting() {
       if (error) { toast.error('Fout: ' + error.message); return; }
     }
 
-    // Invoice-items zonder cashflow_item_id via goedkeurenInvoice
     const invoiceItems = outItems.filter(i =>
       !i.cashflow_item_id &&
       i.ref_type === 'invoice' &&
@@ -168,7 +128,6 @@ export default function FinanceMeeting() {
   };
 
   const goedkeurenInvoice = async (item: CashflowItem) => {
-    // Check of er al een cashflow_item bestaat voor deze invoice
     const { data: bestaand } = await supabase
       .from('cashflow_items')
       .select('id')
@@ -177,13 +136,11 @@ export default function FinanceMeeting() {
       .maybeSingle();
 
     if (bestaand) {
-      // Bestaand item gewoon goedkeuren
       await supabase
         .from('cashflow_items')
         .update({ status: 'goedgekeurd', goedgekeurd_op: new Date().toISOString() } as any)
         .eq('id', bestaand.id);
     } else {
-      // Nieuw aanmaken
       const { data: cfData, error: cfError } = await supabase
         .from('cashflow_items')
         .insert({
@@ -263,7 +220,7 @@ export default function FinanceMeeting() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const body: any = { weeks: 2 };
+      const body: any = { weeks: 4 };
       if (localBVId) body.bv_id = localBVId;
 
       const { data, error } = await supabase.functions.invoke('calculate-forecast', { body });
@@ -276,6 +233,20 @@ export default function FinanceMeeting() {
           && i.status !== 'ontvangen'
       );
       setCashflowItems(items);
+
+      // Radar: inkomsten voor deze week + 2 weken vooruit
+      const week1 = currentWeekDate;
+      const week2 = format(addDays(weekStart, 7), 'yyyy-MM-dd');
+      const week3 = format(addDays(weekStart, 14), 'yyyy-MM-dd');
+
+      const radar: CashflowItem[] = (data.cashflowItems || []).filter(
+        (i: CashflowItem) =>
+          (i.week === week1 || i.week === week2 || i.week === week3) &&
+          i.type === 'in' &&
+          i.status !== 'betaald' &&
+          i.status !== 'ontvangen'
+      );
+      setRadarItems(radar);
 
       // Haal totaal goedgekeurde posten op uit betalingsronde
       const { data: goedgekeurdData } = await supabase
@@ -295,18 +266,6 @@ export default function FinanceMeeting() {
         .select('id, bv_id, iban, naam, huidig_saldo')
         .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
       setBankAccounts(accounts || []);
-
-      // Pipeline
-      let q = supabase.from('mt_pipeline_items').select('*');
-      if (localBVId) q = q.eq('bv_id', localBVId);
-      const { data: pipe } = await q;
-      const sorted = (pipe || []).sort((a: any, b: any) => {
-        const sa = STATUS_ORDER[a.status ?? 'lead'] ?? 9;
-        const sb = STATUS_ORDER[b.status ?? 'lead'] ?? 9;
-        if (sa !== sb) return sa - sb;
-        return (b.bedrag ?? 0) - (a.bedrag ?? 0);
-      });
-      setPipelineItems(sorted);
     } catch (e: any) {
       toast.error('Fout bij laden: ' + (e.message || 'Onbekend'));
     } finally {
@@ -339,7 +298,6 @@ export default function FinanceMeeting() {
       toast.error('Fout bij opslaan: ' + error.message);
       return;
     }
-    console.log('Saldo opgeslagen voor account', account.id, '→', nieuwSaldo);
     toast.success('Saldo bijgewerkt');
     setEditingSaldoId(null);
     setBankAccounts(prev => prev.map(a =>
@@ -347,7 +305,7 @@ export default function FinanceMeeting() {
     ));
   };
 
-   // ── Tab 1 helpers ──
+  // ── Tab 1 helpers ──
   const outItems = cashflowItems.filter(i => i.type === 'out');
   const inItems = cashflowItems.filter(i => i.type === 'in');
   const outDecision = outItems.filter(i => i.bron !== 'recurring');
@@ -407,85 +365,7 @@ export default function FinanceMeeting() {
     setDrawerOpen(true);
   };
 
-  // ── Tab 2 helpers ──
-  const handleStatusChange = async (item: PipelineItem) => {
-    const currentIdx = STATUS_FLOW.indexOf(item.status ?? 'lead');
-    const nextStatus = STATUS_FLOW[Math.min(currentIdx + 1, STATUS_FLOW.length - 1)];
-    if (nextStatus === item.status) return;
-
-    const { error } = await supabase
-      .from('mt_pipeline_items')
-      .update({ status: nextStatus })
-      .eq('id', item.id);
-    if (error) {
-      toast.error('Fout: ' + error.message);
-      return;
-    }
-    toast.success(`Status gewijzigd naar ${nextStatus}`);
-    loadData();
-  };
-
-  const openSchedule = (item: PipelineItem) => {
-    setScheduleItem(item);
-    setTermijnen([
-      { percentage: 50, datum: undefined },
-      { percentage: 30, datum: undefined },
-      { percentage: 20, datum: undefined },
-    ]);
-  };
-
-  const totalPercentage = termijnen.reduce((s, t) => s + (t.percentage || 0), 0);
-  const percentageValid = totalPercentage === 100;
-  const allDatesSet = termijnen.every(t => t.datum);
-
-  const handleSaveSchedule = async () => {
-    if (!scheduleItem || !percentageValid || !allDatesSet) return;
-    setSavingSchedule(true);
-    try {
-      const totalBedrag = scheduleItem.bedrag ?? 0;
-      const items = termijnen.map((t, i) => {
-        const bedrag = Math.round(totalBedrag * (t.percentage / 100) * 100) / 100;
-        const weekDate = format(getISOWeekStart(t.datum!), 'yyyy-MM-dd');
-        return {
-          bv_id: scheduleItem.bv_id,
-          omschrijving: `${scheduleItem.projectnaam} — termijn ${i + 1} (${t.percentage}%)`,
-          bedrag,
-          type: 'in',
-          week: weekDate,
-          categorie: 'Omzet',
-          subcategorie: scheduleItem.projectnaam ?? '',
-          bron: 'mt_pipeline',
-          ref_id: scheduleItem.id,
-          ref_type: 'mt_pipeline',
-          tegenpartij: scheduleItem.projectnaam ?? '',
-        };
-      });
-
-      const { error } = await supabase.from('cashflow_items').insert(items);
-      if (error) throw error;
-
-      // Update verwachte_week to first termijn date
-      const firstDate = termijnen
-        .filter(t => t.datum)
-        .sort((a, b) => a.datum!.getTime() - b.datum!.getTime())[0];
-      if (firstDate?.datum) {
-        await supabase
-          .from('mt_pipeline_items')
-          .update({ verwachte_week: format(firstDate.datum, 'yyyy-MM-dd') })
-          .eq('id', scheduleItem.id);
-      }
-
-      toast.success(`${termijnen.length} betaaltermijnen ingepland in forecast`);
-      setScheduleItem(null);
-      loadData();
-    } catch (e: any) {
-      toast.error('Fout: ' + (e.message || 'Onbekend'));
-    } finally {
-      setSavingSchedule(false);
-    }
-  };
-
-  // ── helper: selectable items (non-recurring, has cashflow_item_id OR is invoice) ──
+  // ── helper: selectable items ──
   const selectableOutItems = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
   const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
 
@@ -624,7 +504,6 @@ export default function FinanceMeeting() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {/* Sectie 1: Te beslissen */}
           {outDecision.length === 0 && outRecurring.length === 0 && (
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
@@ -679,7 +558,6 @@ export default function FinanceMeeting() {
             </TableRow>
           ))}
 
-          {/* Scheidingslijn */}
           {outRecurring.length > 0 && (
             <TableRow className="border-0 hover:bg-transparent">
               <TableCell colSpan={6} className="py-2 px-4">
@@ -693,7 +571,6 @@ export default function FinanceMeeting() {
             </TableRow>
           )}
 
-          {/* Sectie 2: Vaste lasten */}
           {outRecurring.map((item, idx) => (
             <TableRow key={`rec-${item.ref_id}-${idx}`} className="bg-muted/30 hover:bg-muted/40">
               <TableCell />
@@ -726,7 +603,6 @@ export default function FinanceMeeting() {
               </TableCell>
             </TableRow>
           ))}
-          {/* Scheidingslijn goedgekeurd */}
           {totaalGoedgekeurd > 0 && (
             <>
               <TableRow className="border-0 hover:bg-transparent">
@@ -790,6 +666,7 @@ export default function FinanceMeeting() {
       </Table>
     );
   };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -826,7 +703,7 @@ export default function FinanceMeeting() {
       <Tabs defaultValue="deze-week">
         <TabsList>
           <TabsTrigger value="deze-week">Deze week</TabsTrigger>
-          <TabsTrigger value="mt-pipeline">MT Pipeline</TabsTrigger>
+          <TabsTrigger value="inkomsten-radar">Inkomsten Radar</TabsTrigger>
         </TabsList>
 
         {/* ── TAB 1: Deze week ── */}
@@ -972,69 +849,125 @@ export default function FinanceMeeting() {
           </Card>
         </TabsContent>
 
-        {/* ── TAB 2: MT Pipeline ── */}
-        <TabsContent value="mt-pipeline" className="space-y-4 mt-4">
-          {pipelineItems.length === 0 && (
-            <p className="text-muted-foreground text-center py-12">Geen pipeline items gevonden.</p>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {pipelineItems.map(item => {
-              const ev = (item.bedrag ?? 0) * ((item.kans_percentage ?? 0) / 100);
-              const status = item.status ?? 'lead';
-              return (
-                <Card key={item.id}>
-                  <CardContent className="pt-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-base leading-tight">{item.projectnaam ?? '—'}</h3>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {bvs.find(b => b.id === item.bv_id) && (
-                          <Badge variant="outline" className="text-xs">
-                            <span className="h-2 w-2 rounded-full mr-1" style={{ backgroundColor: bvs.find(b => b.id === item.bv_id)?.kleur ?? '#888' }} />
-                            {bvs.find(b => b.id === item.bv_id)?.naam}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
+        {/* ── TAB: Inkomsten Radar ── */}
+        <TabsContent value="inkomsten-radar" className="space-y-4 mt-4">
+          <p className="text-sm text-muted-foreground">
+            Verwachte inkomsten voor deze week en de komende twee weken.
+          </p>
 
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleStatusChange(item)}
-                        className={cn('px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors', STATUS_COLORS[status] ?? STATUS_COLORS.lead)}
-                      >
-                        {status}
-                      </button>
-                    </div>
+          {[
+            {
+              weekDate: currentWeekDate,
+              label: `Deze week — Wk ${weekNr}`,
+            },
+            {
+              weekDate: format(addDays(weekStart, 7), 'yyyy-MM-dd'),
+              label: `Volgende week — Wk ${getISOWeek(addDays(weekStart, 7))}`,
+            },
+            {
+              weekDate: format(addDays(weekStart, 14), 'yyyy-MM-dd'),
+              label: `Week daarna — Wk ${getISOWeek(addDays(weekStart, 14))}`,
+            },
+          ].map(({ weekDate, label }) => {
+            const weekItems = radarItems.filter(i => i.week === weekDate);
+            const totaal = weekItems.reduce((s, i) => s + i.bedrag, 0);
 
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-xs text-muted-foreground">Bedrag</p>
-                        <p className="font-mono text-sm font-medium">{fmt(item.bedrag ?? 0)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Kans</p>
-                        <p className="font-mono text-sm font-medium">{item.kans_percentage ?? 0}%</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Expected</p>
-                        <p className="font-mono text-sm font-medium text-emerald-400">{fmt(ev)}</p>
-                      </div>
-                    </div>
-
-                    {item.opmerkingen && (
-                      <p className="text-xs text-muted-foreground italic line-clamp-2">{item.opmerkingen}</p>
-                    )}
-
-                    {(status === 'contract' || status === 'handshake') && (
-                      <Button size="sm" variant="outline" className="w-full" onClick={() => openSchedule(item)}>
-                        <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
-                        Inplannen
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+            return (
+              <Card key={weekDate}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base text-emerald-400">{label}</CardTitle>
+                    <span className="font-mono text-sm font-semibold text-emerald-400">
+                      + {fmt(totaal)}
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {weekItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground px-4 py-6 text-center">
+                      Geen verwachte inkomsten
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Omschrijving</TableHead>
+                          <TableHead>Categorie</TableHead>
+                          <TableHead>BV</TableHead>
+                          <TableHead className="text-right">Bedrag</TableHead>
+                          <TableHead className="w-[100px]">Acties</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {weekItems.map((item, idx) => (
+                          <TableRow key={`radar-${item.ref_id}-${idx}`}>
+                            <TableCell className="text-sm">
+                              <div className="flex items-center gap-1">
+                                {item.omschrijving}
+                                {item.opmerking && (
+                                  <span className="shrink-0" title={item.opmerking}>💬</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-xs">{item.categorie}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: item.bv_kleur }} />
+                                <span className="text-xs text-muted-foreground">{item.bv_naam}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-sm text-emerald-400">
+                              + {fmt(item.bedrag)}
+                            </TableCell>
+                            <TableCell>
+                              {!isViewer && (
+                                <div className="flex gap-1">
+                                  {item.cashflow_item_id && (
+                                    <Button
+                                      variant="ghost" size="icon"
+                                      className="h-7 w-7 hover:bg-blue-500 hover:text-white transition-colors"
+                                      onClick={() => checkOntvangen(item)}
+                                      title="Check ontvangen">
+                                      <PackageCheck className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleShiftWeek(item)}
+                                    title="→ 1 week">
+                                    <ArrowRight className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost" size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => openDrawer(item)}
+                                    title="Bewerken">
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                      <TableFooter>
+                        <TableRow>
+                          <TableCell colSpan={3} className="font-semibold">Totaal verwacht</TableCell>
+                          <TableCell className="text-right font-mono font-semibold text-emerald-400">
+                            + {fmt(totaal)}
+                          </TableCell>
+                          <TableCell />
+                        </TableRow>
+                      </TableFooter>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </TabsContent>
       </Tabs>
 
@@ -1046,116 +979,6 @@ export default function FinanceMeeting() {
         onRefresh={loadData}
         bvs={bvs}
       />
-
-      {/* Schedule modal */}
-      <Sheet open={!!scheduleItem} onOpenChange={v => !v && setScheduleItem(null)}>
-        <SheetContent className="w-[460px] sm:w-[460px] overflow-y-auto">
-          <SheetHeader className="pb-4 border-b">
-            <SheetTitle>{scheduleItem?.projectnaam ?? 'Inplannen'}</SheetTitle>
-          </SheetHeader>
-          {scheduleItem && (
-            <div className="space-y-5 pt-5">
-              <div>
-                <Label className="text-xs text-muted-foreground">Totaal projectbedrag</Label>
-                <p className="text-xl font-mono font-semibold">{fmt(scheduleItem.bedrag ?? 0)}</p>
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-sm font-medium">Betalingsschema</Label>
-                <p className={cn('text-xs', percentageValid ? 'text-emerald-400' : 'text-destructive')}>
-                  Totaal: {totalPercentage}%{' '}
-                  {!percentageValid && `(nog ${100 - totalPercentage}% in te delen)`}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {termijnen.map((t, i) => {
-                  const bedrag = (scheduleItem.bedrag ?? 0) * ((t.percentage || 0) / 100);
-                  return (
-                    <div key={i} className="flex items-end gap-3 p-3 rounded-lg bg-muted/30 border">
-                      <div className="space-y-1 w-20">
-                        <Label className="text-xs">Termijn {i + 1}</Label>
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            value={t.percentage}
-                            onChange={e => {
-                              const updated = [...termijnen];
-                              updated[i] = { ...updated[i], percentage: Number(e.target.value) || 0 };
-                              setTermijnen(updated);
-                            }}
-                            className="h-8 text-sm font-mono w-16"
-                            min={0}
-                            max={100}
-                          />
-                          <span className="text-xs text-muted-foreground">%</span>
-                        </div>
-                      </div>
-                      <div className="space-y-1 flex-1">
-                        <Label className="text-xs">Datum</Label>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn('w-full h-8 justify-start text-left text-sm', !t.datum && 'text-muted-foreground')}>
-                              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                              {t.datum ? format(t.datum, 'd MMM yyyy', { locale: nl }) : 'Kies datum'}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={t.datum}
-                              onSelect={d => {
-                                const updated = [...termijnen];
-                                updated[i] = { ...updated[i], datum: d };
-                                setTermijnen(updated);
-                              }}
-                              className="p-3 pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      <div className="text-right min-w-[90px]">
-                        <p className="text-xs text-muted-foreground">Bedrag</p>
-                        <p className="font-mono text-sm">{fmt(bedrag)}</p>
-                      </div>
-                      {termijnen.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0"
-                          onClick={() => setTermijnen(termijnen.filter((_, j) => j !== i))}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setTermijnen([...termijnen, { percentage: 0, datum: undefined }])}
-              >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                Betaaltermijn toevoegen
-              </Button>
-
-              <div className="pt-3 border-t">
-                <Button
-                  className="w-full"
-                  disabled={!percentageValid || !allDatesSet || savingSchedule}
-                  onClick={handleSaveSchedule}
-                >
-                  <Save className="h-4 w-4 mr-2" />
-                  Opslaan ({termijnen.length} termijnen)
-                </Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
