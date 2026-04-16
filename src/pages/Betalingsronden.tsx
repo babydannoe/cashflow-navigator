@@ -249,10 +249,27 @@ export default function Betalingsronden() {
 
   // ── Goedgekeurde cashflow_items functies ──
   const markeerBetaald = async (id: string) => {
-    await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+    const { data: ci } = await supabase
+      .from('cashflow_items')
+      .select('ref_id, ref_type')
+      .eq('id', id)
+      .maybeSingle();
+
+    await supabase.from('cashflow_items')
+      .update({ status: 'betaald' } as any)
+      .eq('id', id);
+
+    if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+      await supabase.from('invoices')
+        .update({ status: 'betaald' } as any)
+        .eq('id', ci.ref_id);
+    }
+
     await supabase.from('audit_log').insert({
       tabel: 'cashflow_items', actie: 'status → betaald',
-      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+      record_id: id,
+      oud_waarde: { status: 'goedgekeurd' },
+      nieuw_waarde: { status: 'betaald' },
     });
     toast.success('Post gemarkeerd als betaald');
     fetchData();
@@ -261,10 +278,27 @@ export default function Betalingsronden() {
   const markeerBetaaldBulk = async () => {
     const ids = Array.from(selectedCIIds);
     for (const id of ids) {
-      await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+      const { data: ci } = await supabase
+        .from('cashflow_items')
+        .select('ref_id, ref_type')
+        .eq('id', id)
+        .maybeSingle();
+
+      await supabase.from('cashflow_items')
+        .update({ status: 'betaald' } as any)
+        .eq('id', id);
+
+      if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+        await supabase.from('invoices')
+          .update({ status: 'betaald' } as any)
+          .eq('id', ci.ref_id);
+      }
+
       await supabase.from('audit_log').insert({
         tabel: 'cashflow_items', actie: 'status → betaald',
-        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+        record_id: id,
+        oud_waarde: { status: 'goedgekeurd' },
+        nieuw_waarde: { status: 'betaald' },
       });
     }
     toast.success(`${ids.length} posten gemarkeerd als betaald`);
@@ -286,10 +320,28 @@ export default function Betalingsronden() {
   };
 
   const verwijderCI = async (id: string) => {
-    await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+    const { data: ci } = await supabase
+      .from('cashflow_items')
+      .select('ref_id, ref_type')
+      .eq('id', id)
+      .maybeSingle();
+
+    await supabase.from('cashflow_items')
+      .update({ status: 'betaald' } as any)
+      .eq('id', id);
+
+    if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+      await supabase.from('invoices')
+        .update({ status: 'betaald' } as any)
+        .eq('id', ci.ref_id);
+    }
+
     await supabase.from('audit_log').insert({
-      tabel: 'cashflow_items', actie: 'status → betaald (verwijderd uit betalingsronde)',
-      record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+      tabel: 'cashflow_items',
+      actie: 'status → betaald (verwijderd uit betalingsronde)',
+      record_id: id,
+      oud_waarde: { status: 'goedgekeurd' },
+      nieuw_waarde: { status: 'betaald' },
     });
     toast.success('Post verplaatst naar historiek');
     fetchData();
@@ -298,10 +350,28 @@ export default function Betalingsronden() {
   const verwijderCIBulk = async () => {
     const ids = Array.from(selectedCIIds);
     for (const id of ids) {
-      await supabase.from('cashflow_items').update({ status: 'betaald' } as any).eq('id', id);
+      const { data: ci } = await supabase
+        .from('cashflow_items')
+        .select('ref_id, ref_type')
+        .eq('id', id)
+        .maybeSingle();
+
+      await supabase.from('cashflow_items')
+        .update({ status: 'betaald' } as any)
+        .eq('id', id);
+
+      if (ci?.ref_type === 'invoice' && ci?.ref_id) {
+        await supabase.from('invoices')
+          .update({ status: 'betaald' } as any)
+          .eq('id', ci.ref_id);
+      }
+
       await supabase.from('audit_log').insert({
-        tabel: 'cashflow_items', actie: 'status → betaald (verwijderd uit betalingsronde)',
-        record_id: id, oud_waarde: { status: 'goedgekeurd' }, nieuw_waarde: { status: 'betaald' },
+        tabel: 'cashflow_items',
+        actie: 'status → betaald (verwijderd uit betalingsronde)',
+        record_id: id,
+        oud_waarde: { status: 'goedgekeurd' },
+        nieuw_waarde: { status: 'betaald' },
       });
     }
     toast.success(`${ids.length} posten verplaatst naar historiek`);
