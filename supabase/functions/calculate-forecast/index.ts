@@ -356,9 +356,6 @@ function findWeekBucket(
       return buckets[i].weekDate;
     }
   }
-  // If before first bucket, put in first
-  if (date < new Date(buckets[0].weekDate)) {
-    return buckets[0].weekDate;
-  }
+  // Items before the forecast horizon are skipped
   return null;
 }
