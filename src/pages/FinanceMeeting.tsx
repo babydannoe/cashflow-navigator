@@ -172,17 +172,27 @@ export default function FinanceMeeting() {
     loadData();
   };
 
-  const checkOntvangen = async (item: CashflowItem) => {
-    const id = item.cashflow_item_id;
-    if (!id) return;
-    const { error } = await supabase
-      .from('cashflow_items')
-      .update({ status: 'betaald', goedgekeurd_op: new Date().toISOString() } as any)
-      .eq('id', id);
-    if (error) { toast.error('Fout: ' + error.message); return; }
-    toast.success('Gemarkeerd als ontvangen');
-    loadData();
-  };
+const checkOntvangen = async (item: CashflowItem) => {
+  const id = item.cashflow_item_id;
+  if (!id) return;
+
+  const { error } = await supabase
+    .from('cashflow_items')
+    .update({ status: 'betaald', goedgekeurd_op: new Date().toISOString() } as any)
+    .eq('id', id);
+  if (error) { toast.error('Fout: ' + error.message); return; }
+
+  // Update ook de bijbehorende invoice zodat hij niet meer in forecast verschijnt
+  if (item.ref_type === 'invoice' && item.ref_id) {
+    await supabase
+      .from('invoices')
+      .update({ status: 'betaald' } as any)
+      .eq('id', item.ref_id);
+  }
+
+  toast.success('Gemarkeerd als ontvangen');
+  loadData();
+};
 
   const betaalRecurring = async (item: CashflowItem) => {
     const { error } = await supabase.from('cashflow_items').insert({
