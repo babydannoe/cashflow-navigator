@@ -346,8 +346,14 @@ function findWeekBucket(
   dateStr: string | null,
   buckets: { weekDate: string }[]
 ): string | null {
-  if (!dateStr) return null;
+  if (!dateStr || buckets.length === 0) return null;
   const date = new Date(dateStr);
+  const firstBucketStart = new Date(buckets[0].weekDate);
+  // Achterstallige posten (datum vóór de huidige week) worden in de huidige week getoond
+  // zodat openstaande facturen / cashflow items niet uit beeld verdwijnen.
+  if (date < firstBucketStart) {
+    return buckets[0].weekDate;
+  }
   for (let i = 0; i < buckets.length; i++) {
     const bucketStart = new Date(buckets[i].weekDate);
     const bucketEnd = new Date(bucketStart);
@@ -356,6 +362,6 @@ function findWeekBucket(
       return buckets[i].weekDate;
     }
   }
-  // Items before the forecast horizon are skipped
+  // Items na de forecast-horizon worden overgeslagen
   return null;
 }
