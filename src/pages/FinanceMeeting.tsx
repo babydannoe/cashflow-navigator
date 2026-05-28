@@ -559,7 +559,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {outDecision.map((item, idx) => (
-            <TableRow key={`dec-${item.ref_id}-${idx}`}>
+            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
               <TableCell className="w-8">
               {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
@@ -569,8 +569,9 @@ const checkOntvangen = async (item: CashflowItem) => {
                 )}
               </TableCell>
               <TableCell className="text-sm max-w-[200px] truncate">
-                <div className="flex items-center gap-1">
-                  {item.omschrijving}
+                <div className="flex items-center gap-1.5">
+                  <PriorityButton item={item} />
+                  <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
