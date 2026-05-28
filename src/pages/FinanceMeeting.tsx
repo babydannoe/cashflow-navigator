@@ -624,12 +624,13 @@ const checkOntvangen = async (item: CashflowItem) => {
           )}
 
           {outRecurring.map((item, idx) => (
-            <TableRow key={`rec-${item.ref_id}-${idx}`} className="bg-muted/30 hover:bg-muted/40">
+            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn('bg-muted/30 hover:bg-muted/40', isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15')}>
               <TableCell />
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                  {item.omschrijving}
+                  <PriorityButton item={item} />
+                  <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
