@@ -98,6 +98,28 @@ export default function FinanceMeeting() {
     const k = item.cashflow_item_id ?? item.ref_id;
     return priorityIds.has(k);
   };
+
+  // Oranje "herinnering" state
+  const [reminderIds, setReminderIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('fm_reminder_ids');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const toggleReminder = (key: string) => {
+    setReminderIds(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      try { localStorage.setItem('fm_reminder_ids', JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const isReminder = (item: CashflowItem) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    return reminderIds.has(k);
+  };
+
+  // PriorityButton (rood — urgent)
   const PriorityButton = ({ item }: { item: CashflowItem }) => {
     const k = item.cashflow_item_id ?? item.ref_id;
     const active = priorityIds.has(k);
@@ -117,6 +139,30 @@ export default function FinanceMeeting() {
         )}
       >
         {active ? '!' : <AlertTriangle className="h-3 w-3" />}
+      </button>
+    );
+  };
+
+  // ReminderButton (oranje — herinnering ontvangen)
+  const ReminderButton = ({ item }: { item: CashflowItem }) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    const active = reminderIds.has(k);
+    if (isViewer) return active ? (
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded-sm bg-orange-500 text-white text-xs font-bold shrink-0" title="Herinnering ontvangen">H</span>
+    ) : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleReminder(k); }}
+        title={active ? 'Herinnering verwijderen' : 'Herinnering ontvangen'}
+        className={cn(
+          'inline-flex items-center justify-center h-5 w-5 rounded-sm shrink-0 transition-colors',
+          active
+            ? 'bg-orange-500 text-white text-xs font-bold hover:bg-orange-600'
+            : 'text-muted-foreground hover:bg-orange-500/10 hover:text-orange-500',
+        )}
+      >
+        {active ? 'H' : <Bell className="h-3 w-3" />}
       </button>
     );
   };
