@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
-  RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save,
+  RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save, AlertTriangle,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -80,6 +80,46 @@ export default function FinanceMeeting() {
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [priorityIds, setPriorityIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('fm_priority_ids');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const togglePriority = (key: string) => {
+    setPriorityIds(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      try { localStorage.setItem('fm_priority_ids', JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const isPriority = (item: CashflowItem) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    return priorityIds.has(k);
+  };
+  const PriorityButton = ({ item }: { item: CashflowItem }) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    const active = priorityIds.has(k);
+    if (isViewer) return active ? (
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded-sm bg-red-600 text-white text-xs font-bold shrink-0" title="Prioriteit">!</span>
+    ) : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); togglePriority(k); }}
+        title={active ? 'Prioriteit verwijderen' : 'Markeer als prioriteit'}
+        className={cn(
+          'inline-flex items-center justify-center h-5 w-5 rounded-sm shrink-0 transition-colors',
+          active
+            ? 'bg-red-600 text-white text-xs font-bold hover:bg-red-700'
+            : 'text-muted-foreground hover:bg-red-500/10 hover:text-red-600',
+        )}
+      >
+        {active ? '!' : <AlertTriangle className="h-3 w-3" />}
+      </button>
+    );
+  };
 
   // Tab 2 state
   const [radarItems, setRadarItems] = useState<CashflowItem[]>([]);
@@ -419,7 +459,7 @@ const checkOntvangen = async (item: CashflowItem) => {
           {items.map((item, idx) => {
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
-              <TableRow key={`${item.ref_id}-${idx}`}>
+              <TableRow key={`${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
                 <TableCell className="w-8">
                   {!isViewer && isSelectable && (
                     <Checkbox
@@ -429,8 +469,9 @@ const checkOntvangen = async (item: CashflowItem) => {
                   )}
                 </TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">
-                  <div className="flex items-center gap-1">
-                    {item.omschrijving}
+                  <div className="flex items-center gap-1.5">
+                    <PriorityButton item={item} />
+                    <span className="truncate">{item.omschrijving}</span>
                     {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                   </div>
                 </TableCell>
@@ -518,7 +559,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {outDecision.map((item, idx) => (
-            <TableRow key={`dec-${item.ref_id}-${idx}`}>
+            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
               <TableCell className="w-8">
               {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
@@ -528,8 +569,9 @@ const checkOntvangen = async (item: CashflowItem) => {
                 )}
               </TableCell>
               <TableCell className="text-sm max-w-[200px] truncate">
-                <div className="flex items-center gap-1">
-                  {item.omschrijving}
+                <div className="flex items-center gap-1.5">
+                  <PriorityButton item={item} />
+                  <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
@@ -582,12 +624,13 @@ const checkOntvangen = async (item: CashflowItem) => {
           )}
 
           {outRecurring.map((item, idx) => (
-            <TableRow key={`rec-${item.ref_id}-${idx}`} className="bg-muted/30 hover:bg-muted/40">
+            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn('bg-muted/30 hover:bg-muted/40', isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15')}>
               <TableCell />
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                  {item.omschrijving}
+                  <PriorityButton item={item} />
+                  <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
