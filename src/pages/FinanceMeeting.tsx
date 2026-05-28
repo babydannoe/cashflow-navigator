@@ -505,7 +505,10 @@ const checkOntvangen = async (item: CashflowItem) => {
           {items.map((item, idx) => {
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
-              <TableRow key={`${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
+              <TableRow key={`${item.ref_id}-${idx}`} className={cn(
+                isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
+                isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
+              )}>
                 <TableCell className="w-8">
                   {!isViewer && isSelectable && (
                     <Checkbox
