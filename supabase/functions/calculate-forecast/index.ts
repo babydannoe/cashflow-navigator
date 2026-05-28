@@ -199,9 +199,17 @@ Deno.serve(async (req) => {
     const lastBucketDate = new Date(weekBuckets[weekBuckets.length - 1].weekDate);
     lastBucketDate.setDate(lastBucketDate.getDate() + 6); // end of last week
 
-    // Build set of already-paid recurring items to skip
+    // Build set of already-paid recurring items to skip (exact week match)
     const betaaldeRecurring = new Set(
       (betaaldRecurringItems || []).map((ci: any) => `${ci.ref_id}__${ci.week}`)
+    );
+    // Ook per maand-bucket: een maandelijkse rule die in een eerdere week van
+    // dezelfde maand is afgevinkt mag niet opnieuw verschijnen in de huidige week.
+    const betaaldeRecurringMaand = new Set(
+      (betaaldRecurringItems || []).map((ci: any) => {
+        const ym = (ci.week as string).slice(0, 7); // YYYY-MM
+        return `${ci.ref_id}__${ym}`;
+      })
     );
 
     for (const rule of recurring || []) {
@@ -251,7 +259,21 @@ Deno.serve(async (req) => {
           if (ruleStart && payDate < ruleStart) { cursor.setMonth(cursor.getMonth() + 1); continue; }
           if (ruleEnd && payDate > ruleEnd) break;
 
-          const weekDate = findWeekBucket(payDate.toISOString().split("T")[0], weekBuckets);
+          // Skip als deze maand-occurrence al ergens is afgevinkt als betaald
+          const ymKey = `${rule.id}__${year}-${String(month + 1).padStart(2, "0")}`;
+          if (betaaldeRecurringMaand.has(ymKey)) {
+            cursor.setMonth(cursor.getMonth() + 1);
+            continue;
+          }
+
+          // Bepaal bucket: payDate vóór de eerste bucket = achterstallig → huidige week tonen
+          let weekDate: string | null;
+          if (payDate < firstBucketDate) {
+            weekDate = weekBuckets[0].weekDate;
+          } else {
+            weekDate = findWeekBucket(payDate.toISOString().split("T")[0], weekBuckets);
+          }
+
           if (weekDate) {
             const key = `${rule.id}__${weekDate}`;
             if (!betaaldeRecurring.has(key)) {
