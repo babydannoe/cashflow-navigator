@@ -520,6 +520,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                 <TableCell className="text-sm max-w-[200px] truncate">
                   <div className="flex items-center gap-1.5">
                     <PriorityButton item={item} />
+                    <ReminderButton item={item} />
                     <span className="truncate">{item.omschrijving}</span>
                     {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                   </div>
@@ -608,7 +609,10 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {outDecision.map((item, idx) => (
-            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
+            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(
+              isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
+              isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
+            )}>
               <TableCell className="w-8">
               {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
@@ -620,6 +624,7 @@ const checkOntvangen = async (item: CashflowItem) => {
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <PriorityButton item={item} />
+                  <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
@@ -673,12 +678,17 @@ const checkOntvangen = async (item: CashflowItem) => {
           )}
 
           {outRecurring.map((item, idx) => (
-            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn('bg-muted/30 hover:bg-muted/40', isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15')}>
+            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn(
+              'bg-muted/30 hover:bg-muted/40',
+              isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15',
+              isReminder(item) && 'bg-orange-500/10 hover:bg-orange-500/15',
+            )}>
               <TableCell />
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                   <PriorityButton item={item} />
+                  <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
