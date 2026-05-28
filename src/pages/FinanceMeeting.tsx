@@ -459,7 +459,7 @@ const checkOntvangen = async (item: CashflowItem) => {
           {items.map((item, idx) => {
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
-              <TableRow key={`${item.ref_id}-${idx}`}>
+              <TableRow key={`${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
                 <TableCell className="w-8">
                   {!isViewer && isSelectable && (
                     <Checkbox
@@ -469,8 +469,9 @@ const checkOntvangen = async (item: CashflowItem) => {
                   )}
                 </TableCell>
                 <TableCell className="text-sm max-w-[200px] truncate">
-                  <div className="flex items-center gap-1">
-                    {item.omschrijving}
+                  <div className="flex items-center gap-1.5">
+                    <PriorityButton item={item} />
+                    <span className="truncate">{item.omschrijving}</span>
                     {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                   </div>
                 </TableCell>
