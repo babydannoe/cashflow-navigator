@@ -80,6 +80,46 @@ export default function FinanceMeeting() {
   const [drawerItem, setDrawerItem] = useState<DrilldownItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [priorityIds, setPriorityIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('fm_priority_ids');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const togglePriority = (key: string) => {
+    setPriorityIds(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      try { localStorage.setItem('fm_priority_ids', JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const isPriority = (item: CashflowItem) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    return priorityIds.has(k);
+  };
+  const PriorityButton = ({ item }: { item: CashflowItem }) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    const active = priorityIds.has(k);
+    if (isViewer) return active ? (
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded-sm bg-red-600 text-white text-xs font-bold shrink-0" title="Prioriteit">!</span>
+    ) : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); togglePriority(k); }}
+        title={active ? 'Prioriteit verwijderen' : 'Markeer als prioriteit'}
+        className={cn(
+          'inline-flex items-center justify-center h-5 w-5 rounded-sm shrink-0 transition-colors',
+          active
+            ? 'bg-red-600 text-white text-xs font-bold hover:bg-red-700'
+            : 'text-muted-foreground hover:bg-red-500/10 hover:text-red-600',
+        )}
+      >
+        {active ? '!' : <AlertTriangle className="h-3 w-3" />}
+      </button>
+    );
+  };
 
   // Tab 2 state
   const [radarItems, setRadarItems] = useState<CashflowItem[]>([]);
