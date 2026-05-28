@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
-  RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save, AlertTriangle,
+  RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save, AlertTriangle, Bell,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -98,6 +98,28 @@ export default function FinanceMeeting() {
     const k = item.cashflow_item_id ?? item.ref_id;
     return priorityIds.has(k);
   };
+
+  // Oranje "herinnering" state
+  const [reminderIds, setReminderIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('fm_reminder_ids');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const toggleReminder = (key: string) => {
+    setReminderIds(prev => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      try { localStorage.setItem('fm_reminder_ids', JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const isReminder = (item: CashflowItem) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    return reminderIds.has(k);
+  };
+
+  // PriorityButton (rood — urgent)
   const PriorityButton = ({ item }: { item: CashflowItem }) => {
     const k = item.cashflow_item_id ?? item.ref_id;
     const active = priorityIds.has(k);
@@ -117,6 +139,30 @@ export default function FinanceMeeting() {
         )}
       >
         {active ? '!' : <AlertTriangle className="h-3 w-3" />}
+      </button>
+    );
+  };
+
+  // ReminderButton (oranje — herinnering ontvangen)
+  const ReminderButton = ({ item }: { item: CashflowItem }) => {
+    const k = item.cashflow_item_id ?? item.ref_id;
+    const active = reminderIds.has(k);
+    if (isViewer) return active ? (
+      <span className="inline-flex items-center justify-center h-5 w-5 rounded-sm bg-orange-500 text-white text-xs font-bold shrink-0" title="Herinnering ontvangen">H</span>
+    ) : null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleReminder(k); }}
+        title={active ? 'Herinnering verwijderen' : 'Herinnering ontvangen'}
+        className={cn(
+          'inline-flex items-center justify-center h-5 w-5 rounded-sm shrink-0 transition-colors',
+          active
+            ? 'bg-orange-500 text-white text-xs font-bold hover:bg-orange-600'
+            : 'text-muted-foreground hover:bg-orange-500/10 hover:text-orange-500',
+        )}
+      >
+        {active ? 'H' : <Bell className="h-3 w-3" />}
       </button>
     );
   };
@@ -459,7 +505,10 @@ const checkOntvangen = async (item: CashflowItem) => {
           {items.map((item, idx) => {
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
-              <TableRow key={`${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
+              <TableRow key={`${item.ref_id}-${idx}`} className={cn(
+                isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
+                isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
+              )}>
                 <TableCell className="w-8">
                   {!isViewer && isSelectable && (
                     <Checkbox
@@ -471,6 +520,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                 <TableCell className="text-sm max-w-[200px] truncate">
                   <div className="flex items-center gap-1.5">
                     <PriorityButton item={item} />
+                    <ReminderButton item={item} />
                     <span className="truncate">{item.omschrijving}</span>
                     {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                   </div>
@@ -559,7 +609,10 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {outDecision.map((item, idx) => (
-            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10')}>
+            <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(
+              isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
+              isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
+            )}>
               <TableCell className="w-8">
               {(item.cashflow_item_id || item.ref_type === 'invoice') && (
                   <Checkbox
@@ -571,6 +624,7 @@ const checkOntvangen = async (item: CashflowItem) => {
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <PriorityButton item={item} />
+                  <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
@@ -624,12 +678,17 @@ const checkOntvangen = async (item: CashflowItem) => {
           )}
 
           {outRecurring.map((item, idx) => (
-            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn('bg-muted/30 hover:bg-muted/40', isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15')}>
+            <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn(
+              'bg-muted/30 hover:bg-muted/40',
+              isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15',
+              isReminder(item) && 'bg-orange-500/10 hover:bg-orange-500/15',
+            )}>
               <TableCell />
               <TableCell className="text-sm max-w-[200px] truncate">
                 <div className="flex items-center gap-1.5">
                   <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                   <PriorityButton item={item} />
+                  <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
