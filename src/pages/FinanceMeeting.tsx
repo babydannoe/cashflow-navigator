@@ -1057,15 +1057,15 @@ const checkOntvangen = async (item: CashflowItem) => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Omschrijving</TableHead>
-                          <TableHead>Categorie</TableHead>
-                          <TableHead>BV</TableHead>
-                          <TableHead className="text-right">Bedrag</TableHead>
+                          <SortHead label="Omschrijving" k="omschrijving" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="Categorie" k="categorie" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="BV" k="bv_naam" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="Bedrag" k="bedrag" state={sortRadar} setState={setSortRadar} className="text-right" align="right" />
                           <TableHead className="w-[100px]">Acties</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {weekItems.map((item, idx) => (
+                        {sortItems(weekItems, sortRadar).map((item, idx) => (
                           <TableRow key={`radar-${item.ref_id}-${idx}`}>
                             <TableCell className="text-sm">
                               <div className="flex items-center gap-1">
