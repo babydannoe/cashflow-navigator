@@ -3,6 +3,7 @@ import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
   RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save, AlertTriangle, Bell,
+  ArrowUp, ArrowDown, ChevronsUpDown,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -412,6 +413,52 @@ const checkOntvangen = async (item: CashflowItem) => {
   const totalIn = inItems.reduce((s, i) => s + i.bedrag, 0);
   const expectedClosing = openingBalance + totalIn - totalOut;
 
+  // ── sorting ──
+  type SortKey = 'omschrijving' | 'categorie' | 'bv_naam' | 'bedrag';
+  type SortState = { key: SortKey; dir: 'asc' | 'desc' };
+  const [sortIn, setSortIn] = useState<SortState | null>(null);
+  const [sortOut, setSortOut] = useState<SortState | null>(null);
+  const [sortRadar, setSortRadar] = useState<SortState | null>(null);
+  const sortItems = (items: CashflowItem[], s: SortState | null) => {
+    if (!s) return items;
+    const sign = s.dir === 'asc' ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const av: any = (a as any)[s.key] ?? '';
+      const bv: any = (b as any)[s.key] ?? '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign;
+      return String(av).localeCompare(String(bv), 'nl', { numeric: true }) * sign;
+    });
+  };
+  const toggleSort = (cur: SortState | null, key: SortKey): SortState | null => {
+    if (!cur || cur.key !== key) return { key, dir: 'asc' };
+    if (cur.dir === 'asc') return { key, dir: 'desc' };
+    return null;
+  };
+  const SortHead = ({ label, k, state, setState, className, align }: {
+    label: string; k: SortKey; state: SortState | null;
+    setState: (s: SortState | null) => void; className?: string; align?: 'right';
+  }) => {
+    const active = state?.key === k;
+    const Icon = active ? (state!.dir === 'asc' ? ArrowUp : ArrowDown) : ChevronsUpDown;
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => setState(toggleSort(state, k))}
+          className={cn(
+            'inline-flex items-center gap-1 hover:text-foreground transition-colors',
+            align === 'right' && 'flex-row-reverse',
+            active && 'text-foreground',
+          )}
+        >
+          <span>{label}</span>
+          <Icon className={cn('h-3 w-3', !active && 'opacity-40')} />
+        </button>
+      </TableHead>
+    );
+  };
+
+
   const handleShiftWeek = async (item: CashflowItem) => {
     if (item.ref_type === 'recurring_rule') {
       toast.error('Recurring items kunnen niet worden verschoven — pas de betaaldag aan in Recurring Kosten.');
@@ -466,7 +513,10 @@ const checkOntvangen = async (item: CashflowItem) => {
   const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
 
   // ── render helpers ──
-  const renderCashflowTable = (items: CashflowItem[], type: 'in' | 'out') => {
+  const renderCashflowTable = (rawItems: CashflowItem[], type: 'in' | 'out') => {
+    const sortState = type === 'in' ? sortIn : sortOut;
+    const setSortState = type === 'in' ? setSortIn : setSortOut;
+    const items = sortItems(rawItems, sortState);
     const colorClass = type === 'in' ? 'text-emerald-400' : 'text-destructive';
     const total = items.reduce((s, i) => s + i.bedrag, 0);
     const selectableItems = items.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
@@ -491,10 +541,10 @@ const checkOntvangen = async (item: CashflowItem) => {
                 />
               )}
             </TableHead>
-            <TableHead>Omschrijving</TableHead>
-            <TableHead>Categorie</TableHead>
-            <TableHead>BV</TableHead>
-            <TableHead className="text-right">Bedrag</TableHead>
+            <SortHead label="Omschrijving" k="omschrijving" state={sortState} setState={setSortState} />
+            <SortHead label="Categorie" k="categorie" state={sortState} setState={setSortState} />
+            <SortHead label="BV" k="bv_naam" state={sortState} setState={setSortState} />
+            <SortHead label="Bedrag" k="bedrag" state={sortState} setState={setSortState} className="text-right" align="right" />
             <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
@@ -503,6 +553,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {items.map((item, idx) => {
+
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
               <TableRow key={`${item.ref_id}-${idx}`} className={cn(
@@ -577,6 +628,8 @@ const checkOntvangen = async (item: CashflowItem) => {
     const colorClass = 'text-destructive';
     const allSelectableOut = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
     const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(getSelectKey(i)));
+    const sortedDecision = sortItems(outDecision, sortOut);
+    const sortedRecurring = sortItems(outRecurring, sortOut);
     return (
       <Table>
         <TableHeader>
@@ -597,10 +650,10 @@ const checkOntvangen = async (item: CashflowItem) => {
                 />
               )}
             </TableHead>
-            <TableHead>Omschrijving</TableHead>
-            <TableHead>Categorie</TableHead>
-            <TableHead>BV</TableHead>
-            <TableHead className="text-right">Bedrag</TableHead>
+            <SortHead label="Omschrijving" k="omschrijving" state={sortOut} setState={setSortOut} />
+            <SortHead label="Categorie" k="categorie" state={sortOut} setState={setSortOut} />
+            <SortHead label="BV" k="bv_naam" state={sortOut} setState={setSortOut} />
+            <SortHead label="Bedrag" k="bedrag" state={sortOut} setState={setSortOut} className="text-right" align="right" />
             <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
@@ -608,7 +661,8 @@ const checkOntvangen = async (item: CashflowItem) => {
           {outDecision.length === 0 && outRecurring.length === 0 && (
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
-          {outDecision.map((item, idx) => (
+          {sortedDecision.map((item, idx) => (
+
             <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(
               isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
               isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
@@ -677,7 +731,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             </TableRow>
           )}
 
-          {outRecurring.map((item, idx) => (
+          {sortedRecurring.map((item, idx) => (
             <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn(
               'bg-muted/30 hover:bg-muted/40',
               isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15',
@@ -1003,15 +1057,15 @@ const checkOntvangen = async (item: CashflowItem) => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Omschrijving</TableHead>
-                          <TableHead>Categorie</TableHead>
-                          <TableHead>BV</TableHead>
-                          <TableHead className="text-right">Bedrag</TableHead>
+                          <SortHead label="Omschrijving" k="omschrijving" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="Categorie" k="categorie" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="BV" k="bv_naam" state={sortRadar} setState={setSortRadar} />
+                          <SortHead label="Bedrag" k="bedrag" state={sortRadar} setState={setSortRadar} className="text-right" align="right" />
                           <TableHead className="w-[100px]">Acties</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {weekItems.map((item, idx) => (
+                        {sortItems(weekItems, sortRadar).map((item, idx) => (
                           <TableRow key={`radar-${item.ref_id}-${idx}`}>
                             <TableCell className="text-sm">
                               <div className="flex items-center gap-1">
