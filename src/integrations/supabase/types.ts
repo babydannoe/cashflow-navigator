@@ -133,6 +133,47 @@ export type Database = {
           },
         ]
       }
+      btw_quarterly: {
+        Row: {
+          bv_id: string
+          created_at: string
+          id: string
+          jaar: number
+          kwartaal: number
+          te_betalen: number
+          te_vorderen: number
+          updated_at: string
+        }
+        Insert: {
+          bv_id: string
+          created_at?: string
+          id?: string
+          jaar: number
+          kwartaal: number
+          te_betalen?: number
+          te_vorderen?: number
+          updated_at?: string
+        }
+        Update: {
+          bv_id?: string
+          created_at?: string
+          id?: string
+          jaar?: number
+          kwartaal?: number
+          te_betalen?: number
+          te_vorderen?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "btw_quarterly_bv_id_fkey"
+            columns: ["bv_id"]
+            isOneToOne: false
+            referencedRelation: "bv"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buffers: {
         Row: {
           actief: boolean | null
