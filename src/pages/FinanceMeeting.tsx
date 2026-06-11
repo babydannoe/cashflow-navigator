@@ -731,7 +731,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             </TableRow>
           )}
 
-          {outRecurring.map((item, idx) => (
+          {sortedRecurring.map((item, idx) => (
             <TableRow key={`rec-${item.ref_id}-${idx}`} className={cn(
               'bg-muted/30 hover:bg-muted/40',
               isPriority(item) && 'bg-red-500/10 hover:bg-red-500/15',
