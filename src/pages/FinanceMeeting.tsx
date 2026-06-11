@@ -513,7 +513,10 @@ const checkOntvangen = async (item: CashflowItem) => {
   const selectableInItems = inItems.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
 
   // ── render helpers ──
-  const renderCashflowTable = (items: CashflowItem[], type: 'in' | 'out') => {
+  const renderCashflowTable = (rawItems: CashflowItem[], type: 'in' | 'out') => {
+    const sortState = type === 'in' ? sortIn : sortOut;
+    const setSortState = type === 'in' ? setSortIn : setSortOut;
+    const items = sortItems(rawItems, sortState);
     const colorClass = type === 'in' ? 'text-emerald-400' : 'text-destructive';
     const total = items.reduce((s, i) => s + i.bedrag, 0);
     const selectableItems = items.filter(i => i.cashflow_item_id && i.bron !== 'recurring');
@@ -538,10 +541,10 @@ const checkOntvangen = async (item: CashflowItem) => {
                 />
               )}
             </TableHead>
-            <TableHead>Omschrijving</TableHead>
-            <TableHead>Categorie</TableHead>
-            <TableHead>BV</TableHead>
-            <TableHead className="text-right">Bedrag</TableHead>
+            <SortHead label="Omschrijving" k="omschrijving" state={sortState} setState={setSortState} />
+            <SortHead label="Categorie" k="categorie" state={sortState} setState={setSortState} />
+            <SortHead label="BV" k="bv_naam" state={sortState} setState={setSortState} />
+            <SortHead label="Bedrag" k="bedrag" state={sortState} setState={setSortState} className="text-right" align="right" />
             <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
@@ -550,6 +553,7 @@ const checkOntvangen = async (item: CashflowItem) => {
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
           {items.map((item, idx) => {
+
             const isSelectable = item.cashflow_item_id && item.bron !== 'recurring';
             return (
               <TableRow key={`${item.ref_id}-${idx}`} className={cn(
