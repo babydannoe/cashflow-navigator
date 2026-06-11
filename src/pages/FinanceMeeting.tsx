@@ -628,6 +628,8 @@ const checkOntvangen = async (item: CashflowItem) => {
     const colorClass = 'text-destructive';
     const allSelectableOut = outDecision.filter(i => i.cashflow_item_id || i.ref_type === 'invoice');
     const allOutSelected = allSelectableOut.length > 0 && allSelectableOut.every(i => selectedIds.has(getSelectKey(i)));
+    const sortedDecision = sortItems(outDecision, sortOut);
+    const sortedRecurring = sortItems(outRecurring, sortOut);
     return (
       <Table>
         <TableHeader>
@@ -648,10 +650,10 @@ const checkOntvangen = async (item: CashflowItem) => {
                 />
               )}
             </TableHead>
-            <TableHead>Omschrijving</TableHead>
-            <TableHead>Categorie</TableHead>
-            <TableHead>BV</TableHead>
-            <TableHead className="text-right">Bedrag</TableHead>
+            <SortHead label="Omschrijving" k="omschrijving" state={sortOut} setState={setSortOut} />
+            <SortHead label="Categorie" k="categorie" state={sortOut} setState={setSortOut} />
+            <SortHead label="BV" k="bv_naam" state={sortOut} setState={setSortOut} />
+            <SortHead label="Bedrag" k="bedrag" state={sortOut} setState={setSortOut} className="text-right" align="right" />
             <TableHead className="w-[120px]">Acties</TableHead>
           </TableRow>
         </TableHeader>
@@ -659,7 +661,8 @@ const checkOntvangen = async (item: CashflowItem) => {
           {outDecision.length === 0 && outRecurring.length === 0 && (
             <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Geen items</TableCell></TableRow>
           )}
-          {outDecision.map((item, idx) => (
+          {sortedDecision.map((item, idx) => (
+
             <TableRow key={`dec-${item.ref_id}-${idx}`} className={cn(
               isPriority(item) && 'bg-red-500/5 hover:bg-red-500/10',
               isReminder(item) && 'bg-orange-500/5 hover:bg-orange-500/10',
