@@ -413,6 +413,52 @@ const checkOntvangen = async (item: CashflowItem) => {
   const totalIn = inItems.reduce((s, i) => s + i.bedrag, 0);
   const expectedClosing = openingBalance + totalIn - totalOut;
 
+  // ── sorting ──
+  type SortKey = 'omschrijving' | 'categorie' | 'bv_naam' | 'bedrag';
+  type SortState = { key: SortKey; dir: 'asc' | 'desc' };
+  const [sortIn, setSortIn] = useState<SortState | null>(null);
+  const [sortOut, setSortOut] = useState<SortState | null>(null);
+  const [sortRadar, setSortRadar] = useState<SortState | null>(null);
+  const sortItems = (items: CashflowItem[], s: SortState | null) => {
+    if (!s) return items;
+    const sign = s.dir === 'asc' ? 1 : -1;
+    return [...items].sort((a, b) => {
+      const av: any = (a as any)[s.key] ?? '';
+      const bv: any = (b as any)[s.key] ?? '';
+      if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sign;
+      return String(av).localeCompare(String(bv), 'nl', { numeric: true }) * sign;
+    });
+  };
+  const toggleSort = (cur: SortState | null, key: SortKey): SortState | null => {
+    if (!cur || cur.key !== key) return { key, dir: 'asc' };
+    if (cur.dir === 'asc') return { key, dir: 'desc' };
+    return null;
+  };
+  const SortHead = ({ label, k, state, setState, className, align }: {
+    label: string; k: SortKey; state: SortState | null;
+    setState: (s: SortState | null) => void; className?: string; align?: 'right';
+  }) => {
+    const active = state?.key === k;
+    const Icon = active ? (state!.dir === 'asc' ? ArrowUp : ArrowDown) : ChevronsUpDown;
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => setState(toggleSort(state, k))}
+          className={cn(
+            'inline-flex items-center gap-1 hover:text-foreground transition-colors',
+            align === 'right' && 'flex-row-reverse',
+            active && 'text-foreground',
+          )}
+        >
+          <span>{label}</span>
+          <Icon className={cn('h-3 w-3', !active && 'opacity-40')} />
+        </button>
+      </TableHead>
+    );
+  };
+
+
   const handleShiftWeek = async (item: CashflowItem) => {
     if (item.ref_type === 'recurring_rule') {
       toast.error('Recurring items kunnen niet worden verschoven — pas de betaaldag aan in Recurring Kosten.');
