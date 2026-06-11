@@ -1,81 +1,166 @@
 import { useState, useEffect, useCallback } from 'react';
-import { format, addMonths, startOfMonth } from 'date-fns';
-import { nl } from 'date-fns/locale';
-import { Plus, Calculator, ToggleLeft } from 'lucide-react';
+import { addMonths, startOfMonth } from 'date-fns';
+import { Calculator } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useBV } from '@/contexts/BVContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface Invoice { id: string; bv_id: string; type: string | null; bedrag: number; status: string | null; }
-interface VatPosition { id: string; bv_id: string; periode_label: string | null; verschuldigd_btw: number | null; te_vorderen_btw: number | null; netto_btw: number | null; status: string | null; }
+interface BtwEntry { te_betalen: string; te_vorderen: string; dirty?: boolean }
+
+const QUARTERS = [1, 2, 3, 4] as const;
+
+// 0-indexed month per kwartaal of betaling (Q1→april, Q2→juli, Q3→oktober, Q4→januari +1 jaar)
+function quarterPayMonth(jaar: number, kwartaal: number): { y: number; m: number } {
+  if (kwartaal === 1) return { y: jaar, m: 3 };
+  if (kwartaal === 2) return { y: jaar, m: 6 };
+  if (kwartaal === 3) return { y: jaar, m: 9 };
+  return { y: jaar + 1, m: 0 };
+}
+
+function ymd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+// Maandag van de week waarin de laatste dag van de maand valt. Bij ontvangst (+14 dagen).
+function getPaymentWeekDate(jaar: number, kwartaal: number, isReceipt: boolean): string {
+  const { y, m } = quarterPayMonth(jaar, kwartaal);
+  const last = new Date(y, m + 1, 0);
+  const dow = last.getDay(); // 0=Sun..6=Sat
+  const offset = dow === 0 ? 6 : dow - 1;
+  const monday = new Date(y, m + 1, 0 - offset);
+  if (isReceipt) monday.setDate(monday.getDate() + 14);
+  return ymd(monday);
+}
+
+function parseAmount(s: string): number {
+  if (!s) return 0;
+  const n = parseFloat(String(s).replace(/\./g, '').replace(',', '.'));
+  return isNaN(n) ? 0 : n;
+}
 
 export default function BTWBelasting() {
   const { bvs } = useBV();
   const { isAdmin } = useUserRole();
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [vatPositions, setVatPositions] = useState<VatPosition[]>([]);
-  const [loading, setLoading] = useState(true);
+  const jaar = new Date().getFullYear();
 
-  // VPB state
+  const [entries, setEntries] = useState<Record<string, BtwEntry>>({});
+  const [loading, setLoading] = useState(true);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  // VPB state (ongewijzigd)
   const [vpbEntries, setVpbEntries] = useState<Record<string, { bedrag: string; datum: string; inForecast: boolean }>>({});
-  const [vpbAddOpen, setVpbAddOpen] = useState(false);
-  const [vpbNew, setVpbNew] = useState({ bv_id: '', bedrag: '', datum: '' });
+
+  const keyOf = (bvId: string, q: number) => `${bvId}__${q}`;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [inv, vat] = await Promise.all([
-      supabase.from('invoices').select('id, bv_id, type, bedrag, status').eq('status', 'open'),
-      supabase.from('vat_positions').select('*'),
-    ]);
-    if (inv.data) setInvoices(inv.data);
-    if (vat.data) setVatPositions(vat.data);
+    const { data } = await (supabase as any)
+      .from('btw_quarterly')
+      .select('*')
+      .eq('jaar', jaar);
+    const map: Record<string, BtwEntry> = {};
+    (data || []).forEach((r: any) => {
+      map[keyOf(r.bv_id, r.kwartaal)] = {
+        te_betalen: r.te_betalen ? String(r.te_betalen).replace('.', ',') : '',
+        te_vorderen: r.te_vorderen ? String(r.te_vorderen).replace('.', ',') : '',
+      };
+    });
+    setEntries(map);
     setLoading(false);
-  }, []);
+  }, [jaar]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const fmt = (n: number) => n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' });
-  const BTW_RATE = 0.21;
+  const fmt = (n: number) =>
+    n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 });
 
-  const getBTWForBV = (bvId: string) => {
-    const bvInv = invoices.filter(i => i.bv_id === bvId);
-    const arBTW = bvInv.filter(i => i.type === 'AR').reduce((s, i) => s + i.bedrag * BTW_RATE, 0);
-    const apBTW = bvInv.filter(i => i.type === 'AP').reduce((s, i) => s + i.bedrag * BTW_RATE, 0);
-    return { omzetbelasting: arBTW, voorbelasting: apBTW, netto: arBTW - apBTW };
+  const getEntry = (bvId: string, q: number): BtwEntry =>
+    entries[keyOf(bvId, q)] || { te_betalen: '', te_vorderen: '' };
+
+  const updateEntry = (bvId: string, q: number, field: 'te_betalen' | 'te_vorderen', value: string) => {
+    setEntries(prev => ({
+      ...prev,
+      [keyOf(bvId, q)]: { ...getEntry(bvId, q), [field]: value, dirty: true },
+    }));
   };
 
-  const addBTWToForecast = async (bvId: string) => {
-    const { netto } = getBTWForBV(bvId);
-    if (netto <= 0) { toast.info('Geen positieve BTW-afdracht'); return; }
-    const nextMonth = startOfMonth(addMonths(new Date(), 1));
-    const weekDate = nextMonth.toISOString().split('T')[0];
-    await supabase.from('cashflow_items').insert({
-      bv_id: bvId, week: weekDate, type: 'out', bedrag: netto,
-      omschrijving: 'BTW-afdracht (forecast)', categorie: 'Belastingen',
-      subcategorie: 'BTW', tegenpartij: 'Belastingdienst', bron: 'handmatig', ref_type: 'handmatig',
-    });
-    toast.success('BTW-afdracht toegevoegd aan forecast');
+  const saveQuarter = async (bvId: string, q: number) => {
+    const e = getEntry(bvId, q);
+    const teBetalen = parseAmount(e.te_betalen);
+    const teVorderen = parseAmount(e.te_vorderen);
+    const k = keyOf(bvId, q);
+    setSavingKey(k);
+    try {
+      // 1) Upsert btw_quarterly
+      const { error: upErr } = await (supabase as any)
+        .from('btw_quarterly')
+        .upsert(
+          { bv_id: bvId, jaar, kwartaal: q, te_betalen: teBetalen, te_vorderen: teVorderen },
+          { onConflict: 'bv_id,jaar,kwartaal' }
+        );
+      if (upErr) throw upErr;
+
+      // 2) Sync cashflow_item: verwijder bestaande post voor dit kwartaal/BV en herinsert
+      const opmerking = `${jaar}-Q${q}`;
+      await supabase
+        .from('cashflow_items')
+        .delete()
+        .eq('bv_id', bvId)
+        .eq('bron', 'btw_kwartaal')
+        .eq('opmerking', opmerking);
+
+      const netto = teBetalen - teVorderen; // > 0 = uitgave (te betalen), < 0 = ontvangst (teruggaaf)
+      if (netto !== 0) {
+        const isReceipt = netto < 0;
+        const week = getPaymentWeekDate(jaar, q, isReceipt);
+        await supabase.from('cashflow_items').insert({
+          bv_id: bvId,
+          week,
+          type: isReceipt ? 'in' : 'out',
+          bedrag: Math.abs(netto),
+          omschrijving: isReceipt ? `BTW-teruggaaf ${jaar} Q${q}` : `BTW-afdracht ${jaar} Q${q}`,
+          categorie: 'Belastingen',
+          subcategorie: 'BTW',
+          tegenpartij: 'Belastingdienst',
+          bron: 'btw_kwartaal',
+          ref_type: 'btw_kwartaal',
+          opmerking,
+        });
+      }
+
+      setEntries(prev => ({ ...prev, [k]: { ...e, dirty: false } }));
+      toast.success(`Q${q} opgeslagen`);
+    } catch (err: any) {
+      toast.error(err.message || 'Opslaan mislukt');
+    } finally {
+      setSavingKey(null);
+    }
   };
 
   const saveVPBToForecast = async (bvId: string) => {
     const entry = vpbEntries[bvId];
     if (!entry || !entry.bedrag) return;
     await supabase.from('cashflow_items').insert({
-      bv_id: bvId, week: entry.datum || new Date().toISOString().split('T')[0],
-      type: 'out', bedrag: parseFloat(entry.bedrag),
-      omschrijving: 'VPB inschatting', categorie: 'Belastingen',
-      subcategorie: 'VPB', tegenpartij: 'Belastingdienst', bron: 'handmatig', ref_type: 'handmatig',
+      bv_id: bvId,
+      week: entry.datum || new Date().toISOString().split('T')[0],
+      type: 'out',
+      bedrag: parseFloat(entry.bedrag),
+      omschrijving: 'VPB inschatting',
+      categorie: 'Belastingen',
+      subcategorie: 'VPB',
+      tegenpartij: 'Belastingdienst',
+      bron: 'handmatig',
+      ref_type: 'handmatig',
     });
     toast.success('VPB toegevoegd aan forecast');
   };
@@ -86,76 +171,108 @@ export default function BTWBelasting() {
 
       <Tabs defaultValue="btw">
         <TabsList>
-          <TabsTrigger value="btw">BTW Forecast</TabsTrigger>
+          <TabsTrigger value="btw">BTW per kwartaal</TabsTrigger>
           <TabsTrigger value="vpb">VPB Inschatting</TabsTrigger>
         </TabsList>
 
         <TabsContent value="btw" className="space-y-4 mt-4">
-          {bvs.map(bv => {
-            const btw = getBTWForBV(bv.id);
-            const bvVat = vatPositions.filter(v => v.bv_id === bv.id);
-            return (
-              <Card key={bv.id}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: bv.kleur || '#888' }} />
-                    {bv.naam}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Exact BTW</p>
-                      <p className="text-sm font-mono text-muted-foreground">€0 — nog niet gekoppeld</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Omzetbelasting (AR)</p>
-                      <p className="text-sm font-mono">{fmt(btw.omzetbelasting)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Voorbelasting (AP)</p>
-                      <p className="text-sm font-mono">{fmt(btw.voorbelasting)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Netto te betalen</p>
-                      <p className={`text-sm font-mono font-bold ${btw.netto > 0 ? 'text-red-600' : 'text-green-600'}`}>{fmt(btw.netto)}</p>
-                    </div>
-                  </div>
-
-                  {bvVat.length > 0 && (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Periode</TableHead>
-                          <TableHead className="text-right">Verschuldigd</TableHead>
-                          <TableHead className="text-right">Te vorderen</TableHead>
-                          <TableHead className="text-right">Netto</TableHead>
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bvVat.map(v => (
-                          <TableRow key={v.id}>
-                            <TableCell className="text-sm">{v.periode_label || '—'}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{fmt(v.verschuldigd_btw || 0)}</TableCell>
-                            <TableCell className="text-right font-mono text-sm">{fmt(v.te_vorderen_btw || 0)}</TableCell>
-                            <TableCell className="text-right font-mono text-sm font-bold">{fmt(v.netto_btw || 0)}</TableCell>
-                            <TableCell><Badge variant="outline" className="text-xs">{v.status}</Badge></TableCell>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Calculator className="h-4 w-4" /> BTW {jaar} — per BV en kwartaal
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Vul per kwartaal het af te dragen en het terug te vorderen bedrag in (zoals zichtbaar in Exact).
+                Het saldo wordt automatisch als één post in de Forecast Explorer geplaatst:
+                Q1 → laatste week april, Q2 → juli, Q3 → oktober, Q4 → januari volgend jaar.
+                Teruggaaf wordt 2 weken later ingepland.
+              </p>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Laden...</div>
+              ) : (
+                <div className="space-y-6">
+                  {bvs.map(bv => (
+                    <div key={bv.id} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: bv.kleur || '#888' }} />
+                        <span className="font-semibold text-sm">{bv.naam}</span>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-20">Kwartaal</TableHead>
+                            <TableHead>Te betalen (€)</TableHead>
+                            <TableHead>Terug te vorderen (€)</TableHead>
+                            <TableHead>Netto</TableHead>
+                            <TableHead>Inplandatum</TableHead>
+                            <TableHead className="w-32"></TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-
-                  {isAdmin && (
-                    <Button size="sm" variant="outline" onClick={() => addBTWToForecast(bv.id)}>
-                      <Calculator className="mr-1.5 h-3.5 w-3.5" /> Voeg BTW-afdracht toe aan forecast
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+                        </TableHeader>
+                        <TableBody>
+                          {QUARTERS.map(q => {
+                            const e = getEntry(bv.id, q);
+                            const k = keyOf(bv.id, q);
+                            const teB = parseAmount(e.te_betalen);
+                            const teV = parseAmount(e.te_vorderen);
+                            const netto = teB - teV;
+                            const isReceipt = netto < 0;
+                            const datum = netto !== 0 ? getPaymentWeekDate(jaar, q, isReceipt) : '—';
+                            return (
+                              <TableRow key={q}>
+                                <TableCell className="font-medium text-sm">Q{q}</TableCell>
+                                <TableCell>
+                                  <Input
+                                    value={e.te_betalen}
+                                    onChange={ev => updateEntry(bv.id, q, 'te_betalen', ev.target.value)}
+                                    placeholder="0,00"
+                                    className="h-8 w-32 font-mono text-sm tabular-nums"
+                                    disabled={!isAdmin}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    value={e.te_vorderen}
+                                    onChange={ev => updateEntry(bv.id, q, 'te_vorderen', ev.target.value)}
+                                    placeholder="0,00"
+                                    className="h-8 w-32 font-mono text-sm tabular-nums"
+                                    disabled={!isAdmin}
+                                  />
+                                </TableCell>
+                                <TableCell className={`font-mono text-sm tabular-nums ${netto > 0 ? 'text-red-600' : netto < 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                  {netto === 0 ? '—' : `${isReceipt ? '+' : '-'} ${fmt(Math.abs(netto))}`}
+                                  {netto !== 0 && (
+                                    <span className="ml-1 text-xs text-muted-foreground">
+                                      ({isReceipt ? 'teruggaaf' : 'afdracht'})
+                                    </span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground tabular-nums">{datum}</TableCell>
+                                <TableCell>
+                                  {isAdmin && (
+                                    <Button
+                                      size="sm"
+                                      variant={e.dirty ? 'default' : 'outline'}
+                                      onClick={() => saveQuarter(bv.id, q)}
+                                      disabled={savingKey === k}
+                                      className="h-8"
+                                    >
+                                      {savingKey === k ? 'Opslaan...' : 'Opslaan'}
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="vpb" className="space-y-4 mt-4">
