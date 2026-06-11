@@ -72,6 +72,7 @@ const SOURCES = [
   { id: 'mt_pipeline', label: 'MT Pipeline' },
   { id: 'handmatig', label: 'Handmatig' },
   { id: 'excel_import', label: 'Excel Import' },
+  { id: 'btw_kwartaal', label: 'BTW kwartaal' },
 ];
 
 const PERIODS = [
