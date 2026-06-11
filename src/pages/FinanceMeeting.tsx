@@ -3,6 +3,7 @@ import { format, addDays } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import {
   RefreshCw, ArrowRight, Pencil, X, Lock, Check, PackageCheck, Save, AlertTriangle, Bell,
+  ArrowUp, ArrowDown, ChevronsUpDown,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
