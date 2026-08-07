@@ -344,7 +344,10 @@ export default function ForecastExplorer() {
         </div>
       </div>
 
+      <ForecastNotes />
+
       {/* Filter Bar */}
+
       <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-xl bg-card border border-border">
         <Select value={localBVId || 'all'} onValueChange={(v) => setLocalBVId(v === 'all' ? null : v)}>
           <SelectTrigger className="w-[200px] h-9 text-sm">
