@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
+import { ForecastNotes } from '@/components/ForecastNotes';
 import { toast } from 'sonner';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
