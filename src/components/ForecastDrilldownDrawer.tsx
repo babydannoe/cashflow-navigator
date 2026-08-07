@@ -147,7 +147,36 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
           opmerking: opmerking || null,
         } as any).eq('id', item.ref_id);
         if (error) throw error;
+
+        // Ook het gekoppelde cashflow_item bijwerken — de forecast gebruikt
+        // ci.week (niet invoice.vervaldatum) zodra er een gekoppeld item bestaat.
+        const ciUpdate: any = {
+          bedrag: Math.abs(parseFloat(bedrag)),
+          week: weekDate,
+          omschrijving,
+          categorie,
+          subcategorie: tegenpartij || omschrijving,
+          tegenpartij,
+          type,
+          bv_id: bvId,
+          opmerking: opmerking || null,
+        };
+        if (item.cashflow_item_id) {
+          const { error: ciErr } = await supabase
+            .from('cashflow_items')
+            .update(ciUpdate)
+            .eq('id', item.cashflow_item_id);
+          if (ciErr) throw ciErr;
+        } else {
+          const { error: ciErr } = await supabase
+            .from('cashflow_items')
+            .update(ciUpdate)
+            .eq('ref_type', 'invoice')
+            .eq('ref_id', item.ref_id);
+          if (ciErr) throw ciErr;
+        }
         toast.success('Factuur bijgewerkt');
+
       } else if (item?.cashflow_item_id) {
         // Update the cashflow_item directly
         const { error } = await supabase.from('cashflow_items').update({
