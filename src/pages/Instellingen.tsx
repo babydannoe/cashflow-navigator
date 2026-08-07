@@ -99,7 +99,20 @@ export default function Instellingen() {
   const hasAnyCoupled = tokens.length > 0;
 
   const handleKoppelen = (bvId: string) => {
-    window.location.href = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}&apikey=${SUPABASE_KEY}`;
+    const url = `${SUPABASE_URL}/functions/v1/exact-auth/authorize?bv_id=${bvId}&apikey=${SUPABASE_KEY}`;
+    const popup = window.open(url, 'exact-login', 'width=520,height=720,menubar=no,toolbar=no');
+    if (!popup) {
+      window.location.href = url;
+      return;
+    }
+    const onMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'exact-connected') {
+        window.removeEventListener('message', onMessage);
+        toast.success('Exact Online succesvol gekoppeld!');
+        queryClient.invalidateQueries({ queryKey: ['exact-tokens'] });
+      }
+    };
+    window.addEventListener('message', onMessage);
   };
 
   const handleSync = async (bvId: string) => {

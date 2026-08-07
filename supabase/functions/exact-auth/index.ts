@@ -13,6 +13,90 @@ function jsonResponse(data: unknown, status = 200) {
   });
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Exact Online geeft per app-registratie + gebruiker één token-keten uit.
+ * Alle BV's delen dus dezelfde access/refresh tokens; alleen de division verschilt.
+ * Daarom: altijd de nieuwste rij als bron gebruiken en na een refresh de tokens
+ * naar ALLE rijen wegschrijven, zodat de keten nooit breekt.
+ */
+async function getChainRow(supabase: any) {
+  const { data } = await supabase
+    .from("exact_tokens")
+    .select("*")
+    .order("updated_at", { ascending: false })
+    .limit(1);
+  return data?.[0] ?? null;
+}
+
+async function propagateTokens(
+  supabase: any,
+  tokens: { access_token: string; refresh_token: string; expires_at: string }
+) {
+  await supabase
+    .from("exact_tokens")
+    .update({ ...tokens, refresh_lock: null })
+    .not("id", "is", null);
+}
+
+/** Vernieuwt de gedeelde token-keten. Gebruikt een lock zodat parallelle calls
+ *  de (eenmalig bruikbare) refresh_token niet twee keer verbruiken. */
+async function refreshChain(supabase: any, clientId: string, clientSecret: string) {
+  let row = await getChainRow(supabase);
+  if (!row) return { ok: false, needsAuth: true, error: "Geen Exact koppeling gevonden" };
+
+  // Nog ruim geldig? Dan niets doen.
+  if (new Date(row.expires_at).getTime() > Date.now() + 120_000) {
+    return { ok: true, expires_at: row.expires_at, refreshed: false };
+  }
+
+  // Lock claimen (max 30s oud)
+  const lockCutoff = new Date(Date.now() - 30_000).toISOString();
+  const { data: locked } = await supabase
+    .from("exact_tokens")
+    .update({ refresh_lock: new Date().toISOString() })
+    .eq("id", row.id)
+    .or(`refresh_lock.is.null,refresh_lock.lt.${lockCutoff}`)
+    .select("id");
+
+  if (!locked || locked.length === 0) {
+    // Andere call is bezig: kort wachten en resultaat teruggeven
+    await sleep(3000);
+    row = await getChainRow(supabase);
+    const stillValid = row && new Date(row.expires_at).getTime() > Date.now();
+    return { ok: !!stillValid, expires_at: row?.expires_at, refreshed: false, waited: true };
+  }
+
+  const res = await fetch("https://start.exactonline.nl/api/oauth2/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: row.refresh_token,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Refresh failed:", errText);
+    await supabase.from("exact_tokens").update({ refresh_lock: null }).eq("id", row.id);
+    return { ok: false, needsAuth: true, error: "Token refresh mislukt", details: errText };
+  }
+
+  const data = await res.json();
+  const expires_at = new Date(Date.now() + (data.expires_in - 60) * 1000).toISOString();
+  await propagateTokens(supabase, {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at,
+  });
+
+  return { ok: true, expires_at, refreshed: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -53,7 +137,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "code en state zijn verplicht" }, 400);
       }
 
-      // Exchange code for tokens
       const tokenRes = await fetch("https://start.exactonline.nl/api/oauth2/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -78,12 +161,7 @@ Deno.serve(async (req) => {
       // Get current division
       const meRes = await fetch(
         "https://start.exactonline.nl/api/v1/current/Me?$select=CurrentDivision",
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-            Accept: "application/json",
-          },
-        }
+        { headers: { Authorization: `Bearer ${access_token}`, Accept: "application/json" } }
       );
 
       if (!meRes.ok) {
@@ -100,12 +178,7 @@ Deno.serve(async (req) => {
       try {
         const divRes = await fetch(
           `https://start.exactonline.nl/api/v1/${division}/system/Divisions?$select=Code,Description,CustomerName`,
-          {
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-              Accept: "application/json",
-            },
-          }
+          { headers: { Authorization: `Bearer ${access_token}`, Accept: "application/json" } }
         );
         if (divRes.ok) {
           const divData = await divRes.json();
@@ -121,87 +194,78 @@ Deno.serve(async (req) => {
         console.error("Divisions fetch error:", e);
       }
 
-      // Upsert tokens
-      const { error: upsertError } = await supabase
-        .from("exact_tokens")
-        .upsert(
-          {
-            bv_id: state,
-            access_token,
-            refresh_token,
-            division,
-            available_divisions: availableDivisions,
-            expires_at: new Date(Date.now() + (expires_in - 10) * 1000).toISOString(),
-          },
-          { onConflict: "bv_id" }
-        );
+      const expires_at = new Date(Date.now() + (expires_in - 60) * 1000).toISOString();
+
+      const { error: upsertError } = await supabase.from("exact_tokens").upsert(
+        {
+          bv_id: state,
+          access_token,
+          refresh_token,
+          division,
+          available_divisions: availableDivisions,
+          expires_at,
+          refresh_lock: null,
+        },
+        { onConflict: "bv_id" }
+      );
 
       if (upsertError) {
         console.error("Upsert error:", upsertError);
         return jsonResponse({ error: "Tokens opslaan mislukt", details: upsertError.message }, 500);
       }
 
-      return new Response(null, {
-        status: 302,
-        headers: { ...corsHeaders, Location: `${FRONTEND_URL}/instellingen?exact=success` },
+      // Een nieuwe autorisatie maakt oudere token-ketens ongeldig:
+      // deel dezelfde tokens daarom met alle andere gekoppelde BV's.
+      await supabase
+        .from("exact_tokens")
+        .update({ access_token, refresh_token, expires_at, refresh_lock: null })
+        .neq("bv_id", state);
+
+      const html = `<!doctype html><html><head><meta charset="utf-8"><title>Exact Online gekoppeld</title></head>
+<body style="font-family:system-ui;padding:2rem;text-align:center">
+<p>Exact Online is gekoppeld. Je kunt dit venster sluiten.</p>
+<script>
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({ type: 'exact-connected' }, '*');
+      window.close();
+    } else {
+      window.location.replace(${JSON.stringify(`${FRONTEND_URL}/instellingen?exact=success`)});
+    }
+  } catch (e) {
+    window.location.replace(${JSON.stringify(`${FRONTEND_URL}/instellingen?exact=success`)});
+  }
+</script>
+</body></html>`;
+
+      return new Response(html, {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "text/html; charset=utf-8" },
       });
     }
 
-    // ── Route 3: /refresh ──
-    if (path.endsWith("/refresh")) {
-      if (req.method !== "POST") {
-        return jsonResponse({ error: "Alleen POST toegestaan" }, 405);
-      }
+    // ── Route 3: /refresh (en /ensure) ──
+    if (path.endsWith("/refresh") || path.endsWith("/ensure")) {
+      const result = await refreshChain(supabase, EXACT_CLIENT_ID, EXACT_CLIENT_SECRET);
+      return jsonResponse(
+        { success: result.ok, ...result },
+        result.ok ? 200 : result.needsAuth ? 200 : 502
+      );
+    }
 
-      const { bv_id } = await req.json();
-      if (!bv_id) return jsonResponse({ error: "bv_id is verplicht" }, 400);
-
-      // Get current tokens
-      const { data: tokenRow, error: fetchErr } = await supabase
+    // ── Route 4: /status ──
+    if (path.endsWith("/status")) {
+      const { data: rows } = await supabase
         .from("exact_tokens")
-        .select("*")
-        .eq("bv_id", bv_id)
-        .single();
-
-      if (fetchErr || !tokenRow) {
-        return jsonResponse({ error: "Geen tokens gevonden voor deze BV" }, 404);
-      }
-
-      // Refresh
-      const refreshRes = await fetch("https://start.exactonline.nl/api/oauth2/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: tokenRow.refresh_token,
-          client_id: EXACT_CLIENT_ID,
-          client_secret: EXACT_CLIENT_SECRET,
-        }),
+        .select("bv_id, division, expires_at, updated_at");
+      const chain = await getChainRow(supabase);
+      const connected = !!chain && new Date(chain.expires_at).getTime() > Date.now();
+      return jsonResponse({
+        connected,
+        needsAuth: !chain,
+        expires_at: chain?.expires_at ?? null,
+        bvs: rows ?? [],
       });
-
-      if (!refreshRes.ok) {
-        const errText = await refreshRes.text();
-        console.error("Refresh failed:", errText);
-        return jsonResponse({ error: "Token refresh mislukt", details: errText }, 502);
-      }
-
-      const refreshData = await refreshRes.json();
-      const newExpiresAt = new Date(Date.now() + (refreshData.expires_in - 10) * 1000).toISOString();
-
-      const { error: updateErr } = await supabase
-        .from("exact_tokens")
-        .update({
-          access_token: refreshData.access_token,
-          refresh_token: refreshData.refresh_token,
-          expires_at: newExpiresAt,
-        })
-        .eq("bv_id", bv_id);
-
-      if (updateErr) {
-        return jsonResponse({ error: "Tokens updaten mislukt", details: updateErr.message }, 500);
-      }
-
-      return jsonResponse({ success: true, expires_at: newExpiresAt });
     }
 
     return jsonResponse({ error: "Onbekende route" }, 404);
