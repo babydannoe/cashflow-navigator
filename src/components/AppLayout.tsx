@@ -2,6 +2,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { useBV } from '@/contexts/BVContext';
 import { ViewerBanner } from '@/components/ViewerBanner';
+import { ExactConnectionGuard } from '@/components/ExactConnectionGuard';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { selectedBV } = useBV();
