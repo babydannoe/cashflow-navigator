@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import type { BV } from '@/contexts/BVContext';
+import { InvoicePdfButton } from '@/components/InvoicePdfViewer';
 
 export interface DrilldownItem {
   bv_id: string;
@@ -399,6 +400,12 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
               {item.factuurnummer && <p>Factuurnr: <span className="font-mono">{item.factuurnummer}</span></p>}
               <p>Bron: {item.bron}</p>
               {item.ref_type && <p>Type: {item.ref_type}</p>}
+              {item.ref_type === 'invoice' && item.ref_id && (
+                <div className="flex items-center gap-1 pt-1">
+                  <InvoicePdfButton invoiceId={item.ref_id} />
+                  <span>Factuur-PDF bekijken</span>
+                </div>
+              )}
             </div>
           )}
 
