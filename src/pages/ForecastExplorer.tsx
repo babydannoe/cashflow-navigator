@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
+import { ForecastNotes } from '@/components/ForecastNotes';
 import { toast } from 'sonner';
 import { useVirtualizer } from '@tanstack/react-virtual';
 
@@ -344,7 +345,10 @@ export default function ForecastExplorer() {
         </div>
       </div>
 
+      <ForecastNotes />
+
       {/* Filter Bar */}
+
       <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-xl bg-card border border-border">
         <Select value={localBVId || 'all'} onValueChange={(v) => setLocalBVId(v === 'all' ? null : v)}>
           <SelectTrigger className="w-[200px] h-9 text-sm">
