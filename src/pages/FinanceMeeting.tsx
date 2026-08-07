@@ -19,6 +19,7 @@ import { useBV } from '@/contexts/BVContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
 import { toast } from 'sonner';
+import { InvoicePdfButton } from '@/components/InvoicePdfViewer';
 
 // ── helpers ──
 function getISOWeekStart(date: Date): Date {
@@ -573,6 +574,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                     <PriorityButton item={item} />
                     <ReminderButton item={item} />
                     <span className="truncate">{item.omschrijving}</span>
+                    {item.ref_type === 'invoice' && item.ref_id && <InvoicePdfButton invoiceId={item.ref_id} />}
                     {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                   </div>
                 </TableCell>
@@ -680,6 +682,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                   <PriorityButton item={item} />
                   <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
+                    {item.ref_type === 'invoice' && item.ref_id && <InvoicePdfButton invoiceId={item.ref_id} />}
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
@@ -744,6 +747,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                   <PriorityButton item={item} />
                   <ReminderButton item={item} />
                   <span className="truncate">{item.omschrijving}</span>
+                    {item.ref_type === 'invoice' && item.ref_id && <InvoicePdfButton invoiceId={item.ref_id} />}
                   {item.opmerking && <span className="shrink-0" title={item.opmerking}>💬</span>}
                 </div>
               </TableCell>
@@ -1070,6 +1074,7 @@ const checkOntvangen = async (item: CashflowItem) => {
                             <TableCell className="text-sm">
                               <div className="flex items-center gap-1">
                                 {item.omschrijving}
+                                {item.ref_type === 'invoice' && item.ref_id && <InvoicePdfButton invoiceId={item.ref_id} />}
                                 {item.opmerking && (
                                   <span className="shrink-0" title={item.opmerking}>💬</span>
                                 )}

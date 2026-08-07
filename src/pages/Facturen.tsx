@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ForecastDrilldownDrawer, type DrilldownItem } from '@/components/ForecastDrilldownDrawer';
 import { useUserRole } from '@/hooks/useUserRole';
+import { InvoicePdfButton } from '@/components/InvoicePdfViewer';
 
 interface Invoice {
   id: string;
@@ -289,7 +290,12 @@ export default function Facturen() {
                   <TableCell onClick={e => e.stopPropagation()}>
                     <Checkbox checked={selected.has(inv.id)} onCheckedChange={() => toggleSelect(inv.id)} />
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{inv.factuurnummer || '—'}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <div className="flex items-center gap-1">
+                      <span>{inv.factuurnummer || '—'}</span>
+                      {inv.bron === 'exact' && <InvoicePdfButton invoiceId={inv.id} />}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full" style={{ backgroundColor: bv?.kleur || '#888' }} />
