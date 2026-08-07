@@ -369,6 +369,7 @@ export type Database = {
           division: number | null
           expires_at: string
           id: string
+          refresh_lock: string | null
           refresh_token: string
           updated_at: string | null
         }
@@ -380,6 +381,7 @@ export type Database = {
           division?: number | null
           expires_at: string
           id?: string
+          refresh_lock?: string | null
           refresh_token: string
           updated_at?: string | null
         }
@@ -391,6 +393,7 @@ export type Database = {
           division?: number | null
           expires_at?: string
           id?: string
+          refresh_lock?: string | null
           refresh_token?: string
           updated_at?: string | null
         }

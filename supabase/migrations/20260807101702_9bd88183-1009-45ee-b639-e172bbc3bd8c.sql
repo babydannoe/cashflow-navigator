@@ -1,0 +1,1 @@
+ALTER TABLE public.exact_tokens ADD COLUMN IF NOT EXISTS refresh_lock timestamptz;
