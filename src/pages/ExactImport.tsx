@@ -19,6 +19,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { InvoicePdfButton } from '@/components/InvoicePdfViewer';
+
 import {
   RefreshCw, TrendingUp, CheckCircle2, CalendarIcon, Loader2, X,
   ArrowUpDown, ArrowUp, ArrowDown, Search,
