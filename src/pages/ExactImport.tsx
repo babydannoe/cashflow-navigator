@@ -544,7 +544,13 @@ export default function ExactImport() {
                               ? format(new Date(inv.aangemaakt_in_exact), 'dd MMM yyyy', { locale: nl })
                               : '—'}
                           </TableCell>
-                          <TableCell className="font-mono text-sm">{inv.factuurnummer ?? '—'}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            <div className="flex items-center gap-1">
+                              <span>{inv.factuurnummer ?? '—'}</span>
+                              {inv.exact_id && <InvoicePdfButton invoiceId={inv.id} />}
+                            </div>
+                          </TableCell>
+
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {inv.counterparties?.naam ?? inv.factuurnummer ?? '—'}
