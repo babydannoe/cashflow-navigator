@@ -886,9 +886,29 @@ const checkOntvangen = async (item: CashflowItem) => {
             const selectedInIds = Array.from(selectedIds).filter(id =>
               inItems.some(i => getSelectKey(i) === id)
             );
+            const totaalUit = selectedOutIds.reduce((s, id) => {
+              const it = outItems.find(i => getSelectKey(i) === id);
+              return s + (it?.bedrag ?? 0);
+            }, 0);
+            const totaalIn = selectedInIds.reduce((s, id) => {
+              const it = inItems.find(i => getSelectKey(i) === id);
+              return s + (it?.bedrag ?? 0);
+            }, 0);
             return (
               <div className="flex items-center gap-3 px-4 py-2.5 bg-primary/5 border border-primary/20 rounded-lg flex-wrap">
                 <span className="text-sm font-medium">{selectedIds.size} geselecteerd</span>
+                {totaalUit > 0 && (
+                  <span className="text-sm font-mono font-semibold text-destructive">− {fmt(totaalUit)}</span>
+                )}
+                {totaalIn > 0 && (
+                  <span className="text-sm font-mono font-semibold text-emerald-400">+ {fmt(totaalIn)}</span>
+                )}
+                {totaalUit > 0 && totaalIn > 0 && (
+                  <span className="text-sm font-mono text-muted-foreground">
+                    netto {fmt(totaalIn - totaalUit)}
+                  </span>
+                )}
+
                 {selectedOutIds.length > 0 && (
                   <Button size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={() => goedkeurenBulk(selectedOutIds)}>
