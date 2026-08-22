@@ -40,7 +40,7 @@ interface ReviewSuggestion {
   accepted: boolean | null;
 }
 
-const CATEGORIES = ['Abonnement', 'Personeel', 'Huur', 'Overige'];
+const CATEGORIES = ['Abonnement', 'Personeelskosten', 'Huur', 'Overige'];
 const FREQUENCIES = ['wekelijks', 'maandelijks', 'kwartaal', 'jaarlijks'];
 
 const mockSuggestions: ReviewSuggestion[] = [
