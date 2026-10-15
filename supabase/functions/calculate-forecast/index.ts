@@ -59,9 +59,17 @@ Deno.serve(async (req) => {
     );
     const bvMap = new Map((bvs || []).map((b: any) => [b.id, b]));
 
-    // Calculate opening balance per BV or total
+    // Calculate opening balance per BV or total (alleen VRIJE rekeningen)
     const balancePerBV: Record<string, number> = {};
+    const reserveAccounts: { id: string; bv_id: string; naam: string; gereserveerd_voor: string | null; saldo: number }[] = [];
     for (const a of accounts || []) {
+      if (a.rekening_type === "gereserveerd") {
+        reserveAccounts.push({
+          id: a.id, bv_id: a.bv_id, naam: a.naam || "Reserve",
+          gereserveerd_voor: a.gereserveerd_voor, saldo: Number(a.huidig_saldo || 0),
+        });
+        continue;
+      }
       balancePerBV[a.bv_id] = (balancePerBV[a.bv_id] || 0) + Number(a.huidig_saldo || 0);
     }
     const openingBalance = bv_id
