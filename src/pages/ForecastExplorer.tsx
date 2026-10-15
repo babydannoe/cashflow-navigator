@@ -651,6 +651,7 @@ export default function ForecastExplorer() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       <ForecastDrilldownDrawer
