@@ -144,13 +144,33 @@ export default function ForecastExplorer() {
     const rows: MatrixRow[] = [];
     const weeks = weekBuckets.map(w => w.weekDate);
 
-    // Opening balance
+    // Opening balance (vrij)
     const openingRow: MatrixRow = {
-      id: 'summary-opening', type: 'summary', label: 'Beginsaldo', summaryKind: 'opening',
+      id: 'summary-opening', type: 'summary', label: 'Beginsaldo vrij', summaryKind: 'opening',
       weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { openingRow.weekValues[f.week] = f.opening_balance; });
     rows.push(openingRow);
+
+    const hasReserves = reserveAccounts.length > 0;
+    const reserveSubRows = (prefix: string, key: 'opening_per_reserve' | 'closing_per_reserve' | 'dekking_per_reserve') =>
+      reserveAccounts.map(acc => {
+        const r: MatrixRow = {
+          id: `${prefix}::${acc.id}`, type: 'subcategory', label: acc.naam, parentId: prefix,
+          weekValues: {}, indent: 1, expandable: false, requires: [prefix],
+        };
+        forecasts.forEach(f => { r.weekValues[f.week] = f[key]?.[acc.id] || 0; });
+        return r;
+      });
+
+    if (hasReserves) {
+      const openRes: MatrixRow = {
+        id: 'summary-opening-res', type: 'summary', label: 'Beginsaldo gereserveerd', summaryKind: 'opening_reserved',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { openRes.weekValues[f.week] = f.opening_reserved || 0; });
+      rows.push(openRes, ...reserveSubRows('summary-opening-res', 'opening_per_reserve'));
+    }
 
     const inflowItems = filteredItems.filter(i => i.type === 'in');
     const outflowItems = filteredItems.filter(i => i.type === 'out');
@@ -173,20 +193,68 @@ export default function ForecastExplorer() {
     rows.push(outflowSummary);
     rows.push(...buildCategoryRows(outflowItems, weeks, 'out'));
 
-    // Closing balance
+    if (hasReserves) {
+      const dek: MatrixRow = {
+        id: 'summary-dekking', type: 'summary', label: 'Gedekt uit reserves', summaryKind: 'dekking',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { dek.weekValues[f.week] = f.reserve_dekking || 0; });
+      rows.push(dek);
+      for (const acc of reserveAccounts) {
+        const accRowId = `summary-dekking::${acc.id}`;
+        const accRow: MatrixRow = {
+          id: accRowId, type: 'subcategory', label: acc.naam, parentId: 'summary-dekking',
+          weekValues: {}, indent: 1, expandable: true, requires: ['summary-dekking'],
+        };
+        forecasts.forEach(f => { accRow.weekValues[f.week] = f.dekking_per_reserve?.[acc.id] || 0; });
+        rows.push(accRow);
+        cashflowItems
+          .filter(i => i.betaal_rekening_id === acc.id && (i.reserve_dekking || 0) > 0)
+          .forEach((item, idx) => {
+            rows.push({
+              id: `${accRowId}::item::${item.cashflow_item_id || idx}::${item.week}`,
+              type: 'detail', label: item.omschrijving, parentId: accRowId,
+              weekValues: { [item.week]: item.reserve_dekking || 0 }, indent: 2, expandable: false,
+              detailItem: item, requires: ['summary-dekking', accRowId],
+            });
+          });
+      }
+    }
+
+    // Closing balance (vrij)
     const closingRow: MatrixRow = {
-      id: 'summary-closing', type: 'summary', label: 'Eindsaldo', summaryKind: 'closing',
+      id: 'summary-closing', type: 'summary', label: 'Eindsaldo vrij', summaryKind: 'closing',
       weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { closingRow.weekValues[f.week] = f.closing_balance; });
     rows.push(closingRow);
 
+    if (hasReserves) {
+      const closeRes: MatrixRow = {
+        id: 'summary-closing-res', type: 'summary', label: 'Eindsaldo gereserveerd', summaryKind: 'closing_reserved',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { closeRes.weekValues[f.week] = f.closing_reserved || 0; });
+      rows.push(closeRes, ...reserveSubRows('summary-closing-res', 'closing_per_reserve'));
+
+      const total: MatrixRow = {
+        id: 'summary-total', type: 'summary', label: 'Totaal liquide middelen', summaryKind: 'total',
+        weekValues: {}, indent: 0, expandable: false,
+      };
+      forecasts.forEach(f => { total.weekValues[f.week] = (f.closing_balance || 0) + (f.closing_reserved || 0); });
+      rows.push(total);
+    }
+
     return rows;
-  }, [filteredItems, weekBuckets, forecasts]);
+  }, [filteredItems, weekBuckets, forecasts, reserveAccounts, cashflowItems]);
 
   const visibleRows = useMemo(() => {
     const result: MatrixRow[] = [];
     for (const row of allRows) {
+      if (row.requires) {
+        if (row.requires.every(r => expanded.has(r))) result.push(row);
+        continue;
+      }
       if (row.type === 'summary' || row.type === 'category') {
         result.push(row);
       } else if (row.type === 'subcategory') {
@@ -213,6 +281,17 @@ export default function ForecastExplorer() {
     }
     return result;
   }, [allRows, expanded]);
+
+  const warningsByWeek = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    for (const w of reserveWarnings) {
+      const acc = reserveAccounts.find(a => a.id === w.rekening_id);
+      const label = RESERVE_LABEL[acc?.gereserveerd_voor || ''] || w.rekening_naam;
+      const msg = `${label}-reserve dekt ${fmtEur(w.tekort)} niet; dit gaat ten laste van het vrije saldo.`;
+      (m[w.week] ||= []).push(msg);
+    }
+    return m;
+  }, [reserveWarnings, reserveAccounts]);
 
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
