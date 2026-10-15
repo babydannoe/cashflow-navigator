@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
+import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -25,7 +25,22 @@ interface ForecastWeek {
   inflow: number;
   outflow: number;
   closing_balance: number;
+  opening_reserved?: number;
+  reserve_dekking?: number;
+  closing_reserved?: number;
+  opening_per_reserve?: Record<string, number>;
+  dekking_per_reserve?: Record<string, number>;
+  closing_per_reserve?: Record<string, number>;
 }
+
+interface ReserveAccount { id: string; bv_id: string; naam: string; gereserveerd_voor: string | null }
+interface ReserveWarning { week: string; rekening_id: string; rekening_naam: string; tekort: number; omschrijving: string }
+
+const RESERVE_LABEL: Record<string, string> = {
+  vpb: 'VPB', dividendbelasting: 'Dividendbelasting', btw: 'BTW', overig: 'Overige',
+};
+const fmtEur = (n: number) =>
+  new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
 interface CashflowItem {
   bv_id: string;
@@ -49,6 +64,10 @@ interface CashflowItem {
   frequentie?: string;
   cashflow_item_id?: string;
   opmerking?: string | null;
+  betaal_rekening_id?: string | null;
+  reserve_dekking?: number;
+  reserve_rekening_naam?: string;
+  reserve_tekort?: number;
 }
 
 type RowType = 'summary' | 'category' | 'subcategory' | 'detail';
@@ -57,12 +76,13 @@ interface MatrixRow {
   id: string;
   type: RowType;
   label: string;
-  summaryKind?: 'opening' | 'inflow' | 'outflow' | 'closing';
+  summaryKind?: 'opening' | 'inflow' | 'outflow' | 'closing' | 'opening_reserved' | 'dekking' | 'closing_reserved' | 'total';
   weekValues: Record<string, number>;
   indent: number;
   expandable: boolean;
   parentId?: string;
   detailItem?: CashflowItem;
+  requires?: string[];
 }
 
 const SOURCES = [
@@ -95,6 +115,8 @@ export default function ForecastExplorer() {
   const [forecasts, setForecasts] = useState<ForecastWeek[]>([]);
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [drempel, setDrempel] = useState(0);
+  const [reserveAccounts, setReserveAccounts] = useState<ReserveAccount[]>([]);
+  const [reserveWarnings, setReserveWarnings] = useState<ReserveWarning[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -122,6 +144,8 @@ export default function ForecastExplorer() {
       setForecasts(data.forecasts);
       setCashflowItems(data.cashflowItems);
       setDrempel(data.drempel || 0);
+      setReserveAccounts(data.reserveAccounts || []);
+      setReserveWarnings(data.reserveWarnings || []);
       setLoaded(true);
     } catch (e: any) {
       toast.error('Fout bij ophalen forecast: ' + (e.message || 'Onbekende fout'));
@@ -144,13 +168,33 @@ export default function ForecastExplorer() {
     const rows: MatrixRow[] = [];
     const weeks = weekBuckets.map(w => w.weekDate);
 
-    // Opening balance
+    // Opening balance (vrij)
     const openingRow: MatrixRow = {
-      id: 'summary-opening', type: 'summary', label: 'Beginsaldo', summaryKind: 'opening',
+      id: 'summary-opening', type: 'summary', label: 'Beginsaldo vrij', summaryKind: 'opening',
       weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { openingRow.weekValues[f.week] = f.opening_balance; });
     rows.push(openingRow);
+
+    const hasReserves = reserveAccounts.length > 0;
+    const reserveSubRows = (prefix: string, key: 'opening_per_reserve' | 'closing_per_reserve' | 'dekking_per_reserve') =>
+      reserveAccounts.map(acc => {
+        const r: MatrixRow = {
+          id: `${prefix}::${acc.id}`, type: 'subcategory', label: acc.naam, parentId: prefix,
+          weekValues: {}, indent: 1, expandable: false, requires: [prefix],
+        };
+        forecasts.forEach(f => { r.weekValues[f.week] = f[key]?.[acc.id] || 0; });
+        return r;
+      });
+
+    if (hasReserves) {
+      const openRes: MatrixRow = {
+        id: 'summary-opening-res', type: 'summary', label: 'Beginsaldo gereserveerd', summaryKind: 'opening_reserved',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { openRes.weekValues[f.week] = f.opening_reserved || 0; });
+      rows.push(openRes, ...reserveSubRows('summary-opening-res', 'opening_per_reserve'));
+    }
 
     const inflowItems = filteredItems.filter(i => i.type === 'in');
     const outflowItems = filteredItems.filter(i => i.type === 'out');
@@ -173,20 +217,68 @@ export default function ForecastExplorer() {
     rows.push(outflowSummary);
     rows.push(...buildCategoryRows(outflowItems, weeks, 'out'));
 
-    // Closing balance
+    if (hasReserves) {
+      const dek: MatrixRow = {
+        id: 'summary-dekking', type: 'summary', label: 'Gedekt uit reserves', summaryKind: 'dekking',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { dek.weekValues[f.week] = f.reserve_dekking || 0; });
+      rows.push(dek);
+      for (const acc of reserveAccounts) {
+        const accRowId = `summary-dekking::${acc.id}`;
+        const accRow: MatrixRow = {
+          id: accRowId, type: 'subcategory', label: acc.naam, parentId: 'summary-dekking',
+          weekValues: {}, indent: 1, expandable: true, requires: ['summary-dekking'],
+        };
+        forecasts.forEach(f => { accRow.weekValues[f.week] = f.dekking_per_reserve?.[acc.id] || 0; });
+        rows.push(accRow);
+        cashflowItems
+          .filter(i => i.betaal_rekening_id === acc.id && (i.reserve_dekking || 0) > 0)
+          .forEach((item, idx) => {
+            rows.push({
+              id: `${accRowId}::item::${item.cashflow_item_id || idx}::${item.week}`,
+              type: 'detail', label: item.omschrijving, parentId: accRowId,
+              weekValues: { [item.week]: item.reserve_dekking || 0 }, indent: 2, expandable: false,
+              detailItem: item, requires: ['summary-dekking', accRowId],
+            });
+          });
+      }
+    }
+
+    // Closing balance (vrij)
     const closingRow: MatrixRow = {
-      id: 'summary-closing', type: 'summary', label: 'Eindsaldo', summaryKind: 'closing',
+      id: 'summary-closing', type: 'summary', label: 'Eindsaldo vrij', summaryKind: 'closing',
       weekValues: {}, indent: 0, expandable: false,
     };
     forecasts.forEach(f => { closingRow.weekValues[f.week] = f.closing_balance; });
     rows.push(closingRow);
 
+    if (hasReserves) {
+      const closeRes: MatrixRow = {
+        id: 'summary-closing-res', type: 'summary', label: 'Eindsaldo gereserveerd', summaryKind: 'closing_reserved',
+        weekValues: {}, indent: 0, expandable: true,
+      };
+      forecasts.forEach(f => { closeRes.weekValues[f.week] = f.closing_reserved || 0; });
+      rows.push(closeRes, ...reserveSubRows('summary-closing-res', 'closing_per_reserve'));
+
+      const total: MatrixRow = {
+        id: 'summary-total', type: 'summary', label: 'Totaal liquide middelen', summaryKind: 'total',
+        weekValues: {}, indent: 0, expandable: false,
+      };
+      forecasts.forEach(f => { total.weekValues[f.week] = (f.closing_balance || 0) + (f.closing_reserved || 0); });
+      rows.push(total);
+    }
+
     return rows;
-  }, [filteredItems, weekBuckets, forecasts]);
+  }, [filteredItems, weekBuckets, forecasts, reserveAccounts, cashflowItems]);
 
   const visibleRows = useMemo(() => {
     const result: MatrixRow[] = [];
     for (const row of allRows) {
+      if (row.requires) {
+        if (row.requires.every(r => expanded.has(r))) result.push(row);
+        continue;
+      }
       if (row.type === 'summary' || row.type === 'category') {
         result.push(row);
       } else if (row.type === 'subcategory') {
@@ -213,6 +305,17 @@ export default function ForecastExplorer() {
     }
     return result;
   }, [allRows, expanded]);
+
+  const warningsByWeek = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    for (const w of reserveWarnings) {
+      const acc = reserveAccounts.find(a => a.id === w.rekening_id);
+      const label = RESERVE_LABEL[acc?.gereserveerd_voor || ''] || w.rekening_naam;
+      const msg = `${label}-reserve dekt ${fmtEur(w.tekort)} niet; dit gaat ten laste van het vrije saldo.`;
+      (m[w.week] ||= []).push(msg);
+    }
+    return m;
+  }, [reserveWarnings, reserveAccounts]);
 
   const rowVirtualizer = useVirtualizer({
     count: visibleRows.length,
@@ -416,6 +519,18 @@ export default function ForecastExplorer() {
           </div>
         </div>
       ) : (
+        <>
+        {Object.keys(warningsByWeek).length > 0 && (
+          <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs space-y-1">
+            {weekBuckets.filter(w => warningsByWeek[w.weekDate]).map(w => (
+              <div key={w.weekDate} className="flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+                <span className="font-semibold">{w.label}:</span>
+                <span>{warningsByWeek[w.weekDate].join(' ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-hidden rounded-xl border border-border bg-card" ref={parentRef} style={{ overflow: 'auto' }}>
           <div style={{ minWidth: 280 + weekBuckets.length * COL_WIDTH }}>
             {/* Header */}
@@ -451,6 +566,9 @@ export default function ForecastExplorer() {
                         row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
                         isClosing && 'bg-card font-bold text-foreground',
+                        row.summaryKind === 'dekking' && 'font-semibold text-primary',
+                        row.summaryKind === 'total' && 'text-muted-foreground italic',
+                        (row.summaryKind === 'opening_reserved' || row.summaryKind === 'closing_reserved') && 'font-semibold text-muted-foreground',
                         row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground cursor-pointer',
                         row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground cursor-pointer',
                         row.type === 'detail' && 'matrix-detail-bg text-muted-foreground cursor-pointer',
@@ -473,6 +591,7 @@ export default function ForecastExplorer() {
                       const val = row.weekValues[w.weekDate] || 0;
                       const isNeg = val < 0;
                       const underDrempel = isClosing && val < drempel && drempel > 0;
+                      const isNegShown = isNeg && (row.type !== 'summary' || isClosing || row.summaryKind === 'opening');
                       const heeftOpmerking = row.type === 'detail'
                         && row.detailItem?.week === w.weekDate
                         && !!(row.detailItem as any)?.opmerking;
@@ -485,10 +604,13 @@ export default function ForecastExplorer() {
                             row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
                             row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
                             isClosing && 'bg-card font-bold',
+                            row.summaryKind === 'dekking' && 'text-primary font-semibold',
+                            row.summaryKind === 'total' && 'text-muted-foreground',
+                            (row.summaryKind === 'opening_reserved' || row.summaryKind === 'closing_reserved') && 'font-semibold text-muted-foreground',
                             row.type === 'category' && 'matrix-cat-bg font-semibold cursor-pointer',
                             row.type === 'subcategory' && 'matrix-sub-bg cursor-pointer',
                             row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
-                            isNeg && 'text-destructive',
+                            isNegShown && 'text-destructive',
                             underDrempel && 'matrix-negative-bg text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
@@ -505,6 +627,16 @@ export default function ForecastExplorer() {
                                   💬
                                 </span>
                               )}
+                              {row.summaryKind === 'dekking' && warningsByWeek[w.weekDate] && (
+                                <span title={warningsByWeek[w.weekDate].join('\n')}><AlertTriangle className="h-3 w-3 text-warning" /></span>
+                              )}
+                              {row.type === 'detail' && !row.requires && row.detailItem?.week === w.weekDate && (row.detailItem?.reserve_dekking || 0) > 0 && (
+                                <span
+                                  className="text-[9px] px-1 rounded bg-primary/15 text-primary leading-tight shrink-0"
+                                  title={`${fmt(row.detailItem!.reserve_dekking!)} gedekt uit ${row.detailItem!.reserve_rekening_naam}`}>
+                                  uit reserve
+                                </span>
+                              )}
                               {fmt(val)}
                             </span>
                           ) : (
@@ -519,6 +651,7 @@ export default function ForecastExplorer() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       <ForecastDrilldownDrawer

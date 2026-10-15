@@ -394,6 +394,10 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
             <Textarea value={opmerking} onChange={e => setOpmerking(e.target.value)} placeholder="Extra info..." rows={2} className="text-sm" />
           </div>
 
+          {!isNew && item?.cashflow_item_id && type === 'out' && (
+            <BetaaldVanafField cashflowItemId={item.cashflow_item_id} bvId={bvId} onChanged={onRefresh} />
+          )}
+
           {/* Ref info (read-only when editing) */}
           {!isNew && item && (
             <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
@@ -465,4 +469,53 @@ function getISOWeekStart(date: Date): Date {
   d.setDate(diff);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+function BetaaldVanafField({ cashflowItemId, bvId, onChanged }: { cashflowItemId: string; bvId: string; onChanged: () => void }) {
+  const [accounts, setAccounts] = useState<{ id: string; naam: string | null }[]>([]);
+  const [value, setValue] = useState<string>('vrij');
+
+  useEffect(() => {
+    if (!bvId) return;
+    (async () => {
+      const [{ data: accs }, { data: ci }] = await Promise.all([
+        supabase.from('bank_accounts').select('id, naam').eq('bv_id', bvId).eq('rekening_type', 'gereserveerd'),
+        supabase.from('cashflow_items').select('betaal_rekening_id').eq('id', cashflowItemId).maybeSingle(),
+      ]);
+      setAccounts(accs || []);
+      setValue((ci as any)?.betaal_rekening_id || 'vrij');
+    })();
+  }, [bvId, cashflowItemId]);
+
+  const change = async (v: string) => {
+    const oud = value;
+    setValue(v);
+    const nieuw = v === 'vrij' ? null : v;
+    const { error } = await supabase.from('cashflow_items')
+      .update({ betaal_rekening_id: nieuw, betaal_rekening_handmatig: true } as any)
+      .eq('id', cashflowItemId);
+    if (error) { toast.error('Opslaan mislukt: ' + error.message); setValue(oud); return; }
+    const { data: u } = await supabase.auth.getUser();
+    await supabase.from('audit_log').insert({
+      gebruiker: u.user?.email || null, actie: 'betaal_rekening_gewijzigd', tabel: 'cashflow_items',
+      record_id: cashflowItemId,
+      oud_waarde: { betaal_rekening_id: oud === 'vrij' ? null : oud },
+      nieuw_waarde: { betaal_rekening_id: nieuw },
+    } as any);
+    toast.success('Betaalrekening bijgewerkt');
+    onChanged();
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">Betaald vanaf</Label>
+      <Select value={value} onValueChange={change}>
+        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="vrij">Vrij saldo</SelectItem>
+          {accounts.map(a => <SelectItem key={a.id} value={a.id}>{a.naam}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
 }

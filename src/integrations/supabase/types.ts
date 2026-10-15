@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -50,27 +50,33 @@ export type Database = {
       bank_accounts: {
         Row: {
           bv_id: string
+          gereserveerd_voor: string | null
           huidig_saldo: number | null
           iban: string | null
           id: string
           laatste_sync: string | null
           naam: string | null
+          rekening_type: string
         }
         Insert: {
           bv_id: string
+          gereserveerd_voor?: string | null
           huidig_saldo?: number | null
           iban?: string | null
           id?: string
           laatste_sync?: string | null
           naam?: string | null
+          rekening_type?: string
         }
         Update: {
           bv_id?: string
+          gereserveerd_voor?: string | null
           huidig_saldo?: number | null
           iban?: string | null
           id?: string
           laatste_sync?: string | null
           naam?: string | null
+          rekening_type?: string
         }
         Relationships: [
           {
@@ -245,6 +251,8 @@ export type Database = {
       cashflow_items: {
         Row: {
           bedrag: number | null
+          betaal_rekening_handmatig: boolean
+          betaal_rekening_id: string | null
           bron: string | null
           bv_id: string
           categorie: string | null
@@ -262,6 +270,8 @@ export type Database = {
         }
         Insert: {
           bedrag?: number | null
+          betaal_rekening_handmatig?: boolean
+          betaal_rekening_id?: string | null
           bron?: string | null
           bv_id: string
           categorie?: string | null
@@ -279,6 +289,8 @@ export type Database = {
         }
         Update: {
           bedrag?: number | null
+          betaal_rekening_handmatig?: boolean
+          betaal_rekening_id?: string | null
           bron?: string | null
           bv_id?: string
           categorie?: string | null
@@ -295,6 +307,13 @@ export type Database = {
           week?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cashflow_items_betaal_rekening_id_fkey"
+            columns: ["betaal_rekening_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cashflow_items_bv_id_fkey"
             columns: ["bv_id"]
@@ -432,31 +451,40 @@ export type Database = {
         Row: {
           bv_id: string
           closing_balance: number | null
+          closing_reserved: number | null
           gegenereerd_op: string | null
           id: string
           inflow: number | null
           opening_balance: number | null
+          opening_reserved: number | null
           outflow: number | null
+          reserve_dekking: number | null
           week: string | null
         }
         Insert: {
           bv_id: string
           closing_balance?: number | null
+          closing_reserved?: number | null
           gegenereerd_op?: string | null
           id?: string
           inflow?: number | null
           opening_balance?: number | null
+          opening_reserved?: number | null
           outflow?: number | null
+          reserve_dekking?: number | null
           week?: string | null
         }
         Update: {
           bv_id?: string
           closing_balance?: number | null
+          closing_reserved?: number | null
           gegenereerd_op?: string | null
           id?: string
           inflow?: number | null
           opening_balance?: number | null
+          opening_reserved?: number | null
           outflow?: number | null
+          reserve_dekking?: number | null
           week?: string | null
         }
         Relationships: [
