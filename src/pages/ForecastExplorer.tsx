@@ -115,6 +115,8 @@ export default function ForecastExplorer() {
   const [forecasts, setForecasts] = useState<ForecastWeek[]>([]);
   const [cashflowItems, setCashflowItems] = useState<CashflowItem[]>([]);
   const [drempel, setDrempel] = useState(0);
+  const [reserveAccounts, setReserveAccounts] = useState<ReserveAccount[]>([]);
+  const [reserveWarnings, setReserveWarnings] = useState<ReserveWarning[]>([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -142,6 +144,8 @@ export default function ForecastExplorer() {
       setForecasts(data.forecasts);
       setCashflowItems(data.cashflowItems);
       setDrempel(data.drempel || 0);
+      setReserveAccounts(data.reserveAccounts || []);
+      setReserveWarnings(data.reserveWarnings || []);
       setLoaded(true);
     } catch (e: any) {
       toast.error('Fout bij ophalen forecast: ' + (e.message || 'Onbekende fout'));
@@ -515,6 +519,18 @@ export default function ForecastExplorer() {
           </div>
         </div>
       ) : (
+        <>
+        {Object.keys(warningsByWeek).length > 0 && (
+          <div className="mb-3 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs space-y-1">
+            {weekBuckets.filter(w => warningsByWeek[w.weekDate]).map(w => (
+              <div key={w.weekDate} className="flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+                <span className="font-semibold">{w.label}:</span>
+                <span>{warningsByWeek[w.weekDate].join(' ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex-1 overflow-hidden rounded-xl border border-border bg-card" ref={parentRef} style={{ overflow: 'auto' }}>
           <div style={{ minWidth: 280 + weekBuckets.length * COL_WIDTH }}>
             {/* Header */}
@@ -550,6 +566,9 @@ export default function ForecastExplorer() {
                         row.type === 'summary' && row.summaryKind === 'inflow' && 'font-semibold text-success',
                         row.type === 'summary' && row.summaryKind === 'outflow' && 'font-semibold text-destructive',
                         isClosing && 'bg-card font-bold text-foreground',
+                        row.summaryKind === 'dekking' && 'font-semibold text-primary',
+                        row.summaryKind === 'total' && 'text-muted-foreground italic',
+                        (row.summaryKind === 'opening_reserved' || row.summaryKind === 'closing_reserved') && 'font-semibold text-muted-foreground',
                         row.type === 'category' && 'matrix-cat-bg font-semibold text-foreground cursor-pointer',
                         row.type === 'subcategory' && 'matrix-sub-bg font-medium text-muted-foreground cursor-pointer',
                         row.type === 'detail' && 'matrix-detail-bg text-muted-foreground cursor-pointer',
@@ -572,6 +591,7 @@ export default function ForecastExplorer() {
                       const val = row.weekValues[w.weekDate] || 0;
                       const isNeg = val < 0;
                       const underDrempel = isClosing && val < drempel && drempel > 0;
+                      const isNegShown = isNeg && (row.type !== 'summary' || isClosing || row.summaryKind === 'opening');
                       const heeftOpmerking = row.type === 'detail'
                         && row.detailItem?.week === w.weekDate
                         && !!(row.detailItem as any)?.opmerking;
@@ -584,6 +604,9 @@ export default function ForecastExplorer() {
                             row.type === 'summary' && row.summaryKind === 'inflow' && 'text-success',
                             row.type === 'summary' && row.summaryKind === 'outflow' && 'text-destructive',
                             isClosing && 'bg-card font-bold',
+                            row.summaryKind === 'dekking' && 'text-primary font-semibold',
+                            row.summaryKind === 'total' && 'text-muted-foreground',
+                            (row.summaryKind === 'opening_reserved' || row.summaryKind === 'closing_reserved') && 'font-semibold text-muted-foreground',
                             row.type === 'category' && 'matrix-cat-bg font-semibold cursor-pointer',
                             row.type === 'subcategory' && 'matrix-sub-bg cursor-pointer',
                             row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
@@ -602,6 +625,16 @@ export default function ForecastExplorer() {
                                   className="text-xs leading-none shrink-0"
                                   title={(row.detailItem as any)?.opmerking}>
                                   💬
+                                </span>
+                              )}
+                              {row.summaryKind === 'dekking' && warningsByWeek[w.weekDate] && (
+                                <span title={warningsByWeek[w.weekDate].join('\n')}><AlertTriangle className="h-3 w-3 text-warning" /></span>
+                              )}
+                              {row.type === 'detail' && !row.requires && row.detailItem?.week === w.weekDate && (row.detailItem?.reserve_dekking || 0) > 0 && (
+                                <span
+                                  className="text-[9px] px-1 rounded bg-primary/15 text-primary leading-tight shrink-0"
+                                  title={`${fmt(row.detailItem!.reserve_dekking!)} gedekt uit ${row.detailItem!.reserve_rekening_naam}`}>
+                                  uit reserve
                                 </span>
                               )}
                               {fmt(val)}
