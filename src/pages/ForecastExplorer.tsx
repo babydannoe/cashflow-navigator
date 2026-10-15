@@ -25,7 +25,22 @@ interface ForecastWeek {
   inflow: number;
   outflow: number;
   closing_balance: number;
+  opening_reserved?: number;
+  reserve_dekking?: number;
+  closing_reserved?: number;
+  opening_per_reserve?: Record<string, number>;
+  dekking_per_reserve?: Record<string, number>;
+  closing_per_reserve?: Record<string, number>;
 }
+
+interface ReserveAccount { id: string; bv_id: string; naam: string; gereserveerd_voor: string | null }
+interface ReserveWarning { week: string; rekening_id: string; rekening_naam: string; tekort: number; omschrijving: string }
+
+const RESERVE_LABEL: Record<string, string> = {
+  vpb: 'VPB', dividendbelasting: 'Dividendbelasting', btw: 'BTW', overig: 'Overige',
+};
+const fmtEur = (n: number) =>
+  new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
 interface CashflowItem {
   bv_id: string;
@@ -49,6 +64,10 @@ interface CashflowItem {
   frequentie?: string;
   cashflow_item_id?: string;
   opmerking?: string | null;
+  betaal_rekening_id?: string | null;
+  reserve_dekking?: number;
+  reserve_rekening_naam?: string;
+  reserve_tekort?: number;
 }
 
 type RowType = 'summary' | 'category' | 'subcategory' | 'detail';
@@ -57,12 +76,13 @@ interface MatrixRow {
   id: string;
   type: RowType;
   label: string;
-  summaryKind?: 'opening' | 'inflow' | 'outflow' | 'closing';
+  summaryKind?: 'opening' | 'inflow' | 'outflow' | 'closing' | 'opening_reserved' | 'dekking' | 'closing_reserved' | 'total';
   weekValues: Record<string, number>;
   indent: number;
   expandable: boolean;
   parentId?: string;
   detailItem?: CashflowItem;
+  requires?: string[];
 }
 
 const SOURCES = [
