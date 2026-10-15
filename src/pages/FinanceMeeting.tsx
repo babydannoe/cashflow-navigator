@@ -361,7 +361,7 @@ const checkOntvangen = async (item: CashflowItem) => {
       // Bank accounts
       const { data: accounts } = await supabase
         .from('bank_accounts')
-        .select('id, bv_id, iban, naam, huidig_saldo')
+        .select('id, bv_id, iban, naam, huidig_saldo, rekening_type, gereserveerd_voor')
         .in('bv_id', localBVId ? [localBVId] : bvs.map(b => b.id));
       setBankAccounts(accounts || []);
     } catch (e: any) {
@@ -401,6 +401,16 @@ const checkOntvangen = async (item: CashflowItem) => {
     setBankAccounts(prev => prev.map(a =>
       a.id === account.id ? { ...a, huidig_saldo: nieuwSaldo } : a
     ));
+  };
+
+  const updateRekeningType = async (account: any, patch: { rekening_type?: string; gereserveerd_voor?: string | null }) => {
+    const next = { ...patch };
+    if (next.rekening_type === 'vrij') next.gereserveerd_voor = null;
+    if (next.rekening_type === 'gereserveerd' && !account.gereserveerd_voor && next.gereserveerd_voor === undefined) next.gereserveerd_voor = 'overig';
+    const { error } = await supabase.from('bank_accounts').update(next as any).eq('id', account.id);
+    if (error) { toast.error('Fout bij opslaan: ' + error.message); return; }
+    setBankAccounts(prev => prev.map(a => a.id === account.id ? { ...a, ...next } : a));
+    toast.success('Rekening bijgewerkt');
   };
 
   // ── Tab 1 helpers ──
@@ -964,16 +974,43 @@ const checkOntvangen = async (item: CashflowItem) => {
               <CardTitle className="text-base">Bankstanden bijwerken</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-1">
-                {bankAccounts.map(account => {
+              <div className="space-y-4">
+                {[
+                  { titel: 'Vrije rekeningen', list: bankAccounts.filter(a => (a.rekening_type || 'vrij') !== 'gereserveerd') },
+                  { titel: 'Gereserveerde rekeningen', list: bankAccounts.filter(a => a.rekening_type === 'gereserveerd') },
+                ].filter(g => g.list.length > 0).map(groep => (
+                <div key={groep.titel} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>{groep.titel}</span>
+                    <span className="font-mono">Subtotaal {fmt(groep.list.reduce((s, a) => s + Number(a.huidig_saldo || 0), 0))}</span>
+                  </div>
+                {groep.list.map(account => {
                   const bv = bvs.find(b => b.id === account.bv_id);
                   const isEditing = editingSaldoId === account.id;
                   return (
                     <div key={account.id} className="flex items-center gap-3 py-2 border-b last:border-0">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{bv?.naam ?? 'Onbekend'}</p>
+                        <p className="text-sm font-medium">{bv?.naam ?? 'Onbekend'}{account.naam ? <span className="text-muted-foreground font-normal"> · {account.naam}</span> : null}</p>
                         <p className="text-xs text-muted-foreground font-mono">{account.iban}</p>
                       </div>
+                      <Select value={account.rekening_type || 'vrij'} onValueChange={v => updateRekeningType(account, { rekening_type: v })}>
+                        <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="vrij">Vrij</SelectItem>
+                          <SelectItem value="gereserveerd">Gereserveerd</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {account.rekening_type === 'gereserveerd' && (
+                        <Select value={account.gereserveerd_voor || 'overig'} onValueChange={v => updateRekeningType(account, { gereserveerd_voor: v })}>
+                          <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="vpb">VPB</SelectItem>
+                            <SelectItem value="dividendbelasting">Dividendbelasting</SelectItem>
+                            <SelectItem value="btw">BTW</SelectItem>
+                            <SelectItem value="overig">Overig</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
                       {isEditing ? (
                         <div className="flex items-center gap-2">
                           <Input
@@ -1005,6 +1042,8 @@ const checkOntvangen = async (item: CashflowItem) => {
                     </div>
                   );
                 })}
+                </div>
+                ))}
                 {bankAccounts.length === 0 && (
                   <p className="text-sm text-muted-foreground">Geen bankrekeningen gevonden.</p>
                 )}
