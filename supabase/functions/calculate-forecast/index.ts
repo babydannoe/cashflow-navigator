@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
         cashflow_item_id: ci.id,
         status: ci.status || "actief",
         opmerking: ci.opmerking || null,
+        betaal_rekening_id: ci.betaal_rekening_id || null,
       });
     }
 
