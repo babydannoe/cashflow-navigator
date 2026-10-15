@@ -8,6 +8,13 @@
       "when": 1792060675234,
       "tag": "0000_reserved_bank_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792070825456,
+      "tag": "0001_btw_reserve_autolink",
+      "breakpoints": true
     }
   ]
 }
