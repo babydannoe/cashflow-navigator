@@ -394,6 +394,10 @@ export function ForecastDrilldownDrawer({ item, open, onClose, onRefresh, bvs, i
             <Textarea value={opmerking} onChange={e => setOpmerking(e.target.value)} placeholder="Extra info..." rows={2} className="text-sm" />
           </div>
 
+          {!isNew && item?.cashflow_item_id && type === 'out' && (
+            <BetaaldVanafField cashflowItemId={item.cashflow_item_id} bvId={bvId} onChanged={onRefresh} />
+          )}
+
           {/* Ref info (read-only when editing) */}
           {!isNew && item && (
             <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
