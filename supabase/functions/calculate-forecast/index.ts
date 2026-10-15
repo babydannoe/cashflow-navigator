@@ -295,9 +295,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Calculate weekly forecasts
+    // Calculate weekly forecasts (vrij saldo + gereserveerde rekeningen apart)
     const forecasts: any[] = [];
     let runningBalance = openingBalance;
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const reserveMap = new Map(reserveAccounts.map((r) => [r.id, r]));
+    const reserveSaldo: Record<string, number> = {};
+    for (const r of reserveAccounts) reserveSaldo[r.id] = r.saldo;
+    const reserveWarnings: { week: string; rekening_id: string; rekening_naam: string; tekort: number; omschrijving: string }[] = [];
 
     for (const bucket of weekBuckets) {
       const weekItems = cashflowItems.filter((i) => i.week === bucket.weekDate);
@@ -308,16 +313,53 @@ Deno.serve(async (req) => {
         .filter((i) => i.type === "out")
         .reduce((s: number, i: any) => s + i.bedrag, 0);
 
+      const openingPerReserve: Record<string, number> = {};
+      for (const r of reserveAccounts) openingPerReserve[r.id] = r2(reserveSaldo[r.id]);
+      const dekkingPerReserve: Record<string, number> = {};
+      let dekking = 0;
+
+      for (const item of weekItems) {
+        if (item.type !== "out" || !item.betaal_rekening_id) continue;
+        const res = reserveMap.get(item.betaal_rekening_id);
+        if (!res) continue;
+        const beschikbaar = Math.max(0, reserveSaldo[res.id] || 0);
+        const d = Math.min(item.bedrag, beschikbaar);
+        reserveSaldo[res.id] = beschikbaar - d;
+        dekking += d;
+        dekkingPerReserve[res.id] = (dekkingPerReserve[res.id] || 0) + d;
+        item.reserve_dekking = r2(d);
+        item.reserve_rekening_naam = res.naam;
+        const tekort = item.bedrag - d;
+        if (tekort > 0.005) {
+          item.reserve_tekort = r2(tekort);
+          reserveWarnings.push({
+            week: bucket.weekDate, rekening_id: res.id, rekening_naam: res.naam,
+            tekort: r2(tekort), omschrijving: item.omschrijving,
+          });
+        }
+      }
+
+      const closingPerReserve: Record<string, number> = {};
+      for (const r of reserveAccounts) closingPerReserve[r.id] = r2(reserveSaldo[r.id]);
+      const openingReserved = Object.values(openingPerReserve).reduce((s, v) => s + v, 0);
+      const closingReserved = Object.values(closingPerReserve).reduce((s, v) => s + v, 0);
+
       const opening = runningBalance;
-      const closing = opening + inflow - outflow;
+      const closing = opening + inflow - outflow + dekking;
 
       forecasts.push({
         week: bucket.weekDate,
         label: bucket.label,
-        opening_balance: Math.round(opening * 100) / 100,
-        inflow: Math.round(inflow * 100) / 100,
-        outflow: Math.round(outflow * 100) / 100,
-        closing_balance: Math.round(closing * 100) / 100,
+        opening_balance: r2(opening),
+        inflow: r2(inflow),
+        outflow: r2(outflow),
+        closing_balance: r2(closing),
+        opening_reserved: r2(openingReserved),
+        reserve_dekking: r2(dekking),
+        closing_reserved: r2(closingReserved),
+        opening_per_reserve: openingPerReserve,
+        dekking_per_reserve: Object.fromEntries(Object.entries(dekkingPerReserve).map(([k, v]) => [k, r2(v)])),
+        closing_per_reserve: closingPerReserve,
       });
 
       runningBalance = closing;
@@ -339,6 +381,8 @@ Deno.serve(async (req) => {
       cashflowItems,
       openingBalance,
       drempel: totalDrempel,
+      reserveAccounts: reserveAccounts.map((r) => ({ id: r.id, bv_id: r.bv_id, naam: r.naam, gereserveerd_voor: r.gereserveerd_voor })),
+      reserveWarnings,
     };
 
     return new Response(JSON.stringify(result), {
