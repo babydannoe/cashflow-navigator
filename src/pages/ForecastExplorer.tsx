@@ -3,7 +3,7 @@ import * as XLSX from 'xlsx';
 import { useBV } from '@/contexts/BVContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download } from 'lucide-react';
+import { RefreshCw, ChevronRight, ChevronDown, Loader2, Plus, Download, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -610,7 +610,7 @@ export default function ForecastExplorer() {
                             row.type === 'category' && 'matrix-cat-bg font-semibold cursor-pointer',
                             row.type === 'subcategory' && 'matrix-sub-bg cursor-pointer',
                             row.type === 'detail' && 'matrix-detail-bg cursor-pointer',
-                            isNeg && 'text-destructive',
+                            isNegShown && 'text-destructive',
                             underDrempel && 'matrix-negative-bg text-destructive font-bold',
                           )}
                           style={{ width: COL_WIDTH, minWidth: COL_WIDTH }}
