@@ -244,6 +244,17 @@ Deno.serve(async (req) => {
       });
 
       if (rule.frequentie === "wekelijks") {
+        // Achterstallige, onbetaalde weken (vanaf cutoff) in de huidige week tonen
+        const past = new Date(OVERDUE_CUTOFF);
+        past.setDate(past.getDate() + ((8 - (past.getDay() || 7)) % 7)); // eerste maandag
+        while (past < firstBucketDate) {
+          const wk = toLocalDate(past);
+          if (!(ruleStart && past < ruleStart) && !(ruleEnd && past > ruleEnd) && !betaaldeRecurring.has(`${rule.id}__${wk}`)) {
+            const item = makeItem(weekBuckets[0].weekDate);
+            if (!betaaldeRecurring.has(`${rule.id}__${weekBuckets[0].weekDate}`)) cashflowItems.push({ ...item, achterstallig_week: wk });
+          }
+          past.setDate(past.getDate() + 7);
+        }
         for (const bucket of weekBuckets) {
           const bucketDate = new Date(bucket.weekDate);
           if (ruleStart && bucketDate < ruleStart) continue;
@@ -254,7 +265,12 @@ Deno.serve(async (req) => {
         }
       } else if (rule.frequentie === "maandelijks") {
         // Loop through each calendar month in the horizon
-        const startMonth = new Date(firstBucketDate.getFullYear(), firstBucketDate.getMonth(), 1);
+        // Begin bij de cutoff (of startdatum) zodat onbetaalde termijnen uit vorige maanden
+        // als achterstallig in de huidige week blijven staan.
+        let startMonth = new Date(firstBucketDate.getFullYear(), firstBucketDate.getMonth(), 1);
+        let lookback = new Date(OVERDUE_CUTOFF);
+        if (ruleStart && ruleStart > lookback) lookback = new Date(ruleStart.getFullYear(), ruleStart.getMonth(), 1);
+        if (lookback < startMonth) startMonth = lookback;
         const endMonth = new Date(lastBucketDate.getFullYear(), lastBucketDate.getMonth() + 1, 0);
 
         const cursor = new Date(startMonth);
@@ -399,6 +415,13 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// Vanaf deze datum worden onbetaalde recurring-termijnen als achterstallig doorgeschoven
+const OVERDUE_CUTOFF = new Date(2026, 9, 1);
+
+function toLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 function getISOWeekStart(date: Date): Date {
   const d = new Date(date);
